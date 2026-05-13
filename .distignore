@@ -1,0 +1,9 @@
+.git
+.gitignore
+.phpcs-cache
+AGENTS.md
+composer.json
+composer.lock
+phpcs.xml
+vendor
+release

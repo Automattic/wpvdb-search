@@ -1,0 +1,62 @@
+# Copyright (C) 2026 Automattic, Ramon Corrales
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WPVDB Search 0.1.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpvdb-search\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-05-13T19:51:13+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: wpvdb-search\n"
+
+#. Plugin Name of the plugin
+#: wpvdb-search.php
+msgid "WPVDB Search"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: wpvdb-search.php
+msgid "https://github.com/rbcorrales/wpvdb-search"
+msgstr ""
+
+#. Description of the plugin
+#: wpvdb-search.php
+msgid "Shared dense, sparse, and hybrid search primitives for wpvdb."
+msgstr ""
+
+#. Author of the plugin
+#: wpvdb-search.php
+msgid "Automattic, Ramon Corrales"
+msgstr ""
+
+#. Author URI of the plugin
+#: wpvdb-search.php
+msgid "https://automattic.com/"
+msgstr ""
+
+#: includes/class-search.php:35
+msgid "wpvdb plugin classes not available."
+msgstr ""
+
+#: includes/class-search.php:151
+msgid "Query text is required."
+msgstr ""
+
+#. translators: %d: maximum number of characters allowed in a query.
+#: includes/class-search.php:158
+#, php-format
+msgid "Query too long (max %d chars)."
+msgstr ""
+
+#: includes/class-search.php:211
+msgid "Embedding provider is not configured."
+msgstr ""
+
+#: wpvdb-search.php:39
+msgid "WPVDB Search requires the wpvdb plugin to be active."
+msgstr ""

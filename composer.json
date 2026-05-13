@@ -1,0 +1,39 @@
+{
+	"name": "rbcorrales/wpvdb-search",
+	"description": "Shared dense, sparse, and hybrid search primitives for wpvdb.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"homepage": "https://github.com/rbcorrales/wpvdb-search",
+	"authors": [
+		{
+			"name": "Automattic",
+			"homepage": "https://automattic.com/"
+		},
+		{
+			"name": "Ramon Corrales",
+			"homepage": "https://github.com/rbcorrales"
+		}
+	],
+	"require": {
+		"php": ">=7.4"
+	},
+	"require-dev": {
+		"automattic/vipwpcs": "^3.0",
+		"wp-coding-standards/wpcs": "^3.0",
+		"dealerdirect/phpcodesniffer-composer-installer": "*",
+		"phpcompatibility/phpcompatibility-wp": "*"
+	},
+	"scripts": {
+		"lint": "./vendor/bin/phpcs",
+		"fix": "./vendor/bin/phpcbf"
+	},
+	"support": {
+		"issues": "https://github.com/rbcorrales/wpvdb-search/issues",
+		"source": "https://github.com/rbcorrales/wpvdb-search"
+	},
+	"config": {
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		}
+	}
+}
