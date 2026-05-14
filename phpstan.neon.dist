@@ -1,0 +1,16 @@
+parameters:
+	level: 5
+	phpVersion: 80300
+	paths:
+		- wpvdb-search.php
+		- includes
+	bootstrapFiles:
+		- vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+		- stubs/wpvdb.stub.php
+	excludePaths:
+		analyse:
+			- vendor
+			- release (?)
+	parallel:
+		maximumNumberOfProcesses: 1
+	reportUnmatchedIgnoredErrors: false

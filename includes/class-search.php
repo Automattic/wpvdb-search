@@ -71,9 +71,6 @@ class Search {
 			$t           = microtime( true );
 			$sparse_rows = self::sparse_query( $query, $pool, $args );
 			$sparse_ms   = (int) round( ( microtime( true ) - $t ) * 1000 );
-			if ( is_wp_error( $sparse_rows ) ) {
-				return $sparse_rows;
-			}
 		}
 
 		$merge_limit = $collapse_by_post ? $pool : $limit;
@@ -101,8 +98,8 @@ class Search {
 				'dense_embed_ms' => $dense_embed_ms,
 				'dense_db_ms'    => $dense_db_ms,
 				'sparse_ms'      => $sparse_ms,
-				'dense_count'    => count( is_array( $dense_rows ) ? $dense_rows : [] ),
-				'sparse_count'   => count( is_array( $sparse_rows ) ? $sparse_rows : [] ),
+				'dense_count'    => count( $dense_rows ),
+				'sparse_count'   => count( $sparse_rows ),
 				'fulltext_ready' => Schema::has_fulltext_index(),
 			];
 		}
