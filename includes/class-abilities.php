@@ -98,7 +98,7 @@ class Abilities {
 	 * Execute semantic search.
 	 *
 	 * @param mixed $input Ability input.
-	 * @return array|\WP_Error
+	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function execute_semantic_search( mixed $input ): array|\WP_Error {
 		$input      = is_array( $input ) ? $input : [];
@@ -172,7 +172,7 @@ class Abilities {
 	 * Clamp ability post types to public searchable post types.
 	 *
 	 * @param mixed $post_type Raw post type input.
-	 * @return array
+	 * @return list<string>
 	 */
 	private static function clamp_post_types( mixed $post_type ): array {
 		$requested = self::string_list( $post_type, [ 'any' ] );
@@ -196,7 +196,8 @@ class Abilities {
 	 *
 	 * @param mixed $post_status Raw post status input.
 	 * @param array $post_types  Clamped post types.
-	 * @return array
+	 * @phpstan-param list<string> $post_types
+	 * @return list<string>
 	 */
 	private static function clamp_post_status( mixed $post_status, array $post_types ): array {
 		$requested = self::string_list( $post_status, [ 'publish' ] );
@@ -221,6 +222,7 @@ class Abilities {
 	 * Whether the current user can read private content for any requested type.
 	 *
 	 * @param array $post_types Clamped post types.
+	 * @phpstan-param list<string> $post_types
 	 * @return bool
 	 */
 	private static function can_read_private_posts( array $post_types ): bool {
@@ -249,7 +251,8 @@ class Abilities {
 	 *
 	 * @param mixed $value    Raw value.
 	 * @param array $fallback Fallback when empty.
-	 * @return array
+	 * @phpstan-param list<string> $fallback
+	 * @return list<string>
 	 */
 	private static function string_list( mixed $value, array $fallback ): array {
 		$values = is_array( $value ) ? $value : [ $value ];
@@ -260,9 +263,9 @@ class Abilities {
 	/**
 	 * Format search results for agent consumption.
 	 *
-	 * @param array  $results Search result rows.
-	 * @param string $mode    Search mode.
-	 * @return array
+	 * @param list<array<string, mixed>> $results Search result rows.
+	 * @param string                     $mode    Search mode.
+	 * @return list<array<string, mixed>>
 	 */
 	private static function format_results( array $results, string $mode ): array {
 		$formatted = [];
@@ -309,7 +312,7 @@ class Abilities {
 	/**
 	 * Return the best text excerpt for a result row.
 	 *
-	 * @param array $row Search result row.
+	 * @param array<string, mixed> $row Search result row.
 	 * @return string
 	 */
 	private static function excerpt( array $row ): string {
@@ -345,9 +348,9 @@ class Abilities {
 	/**
 	 * Return the most useful score available for a result row.
 	 *
-	 * @param array  $row  Search result row.
-	 * @param string $mode Search mode.
-	 * @return array
+	 * @param array<string, mixed> $row  Search result row.
+	 * @param string               $mode Search mode.
+	 * @return array{value: float|null, type: string|null}
 	 */
 	private static function score( array $row, string $mode ): array {
 		$keys = [
@@ -373,7 +376,7 @@ class Abilities {
 	/**
 	 * Input schema for semantic search.
 	 *
-	 * @return array
+	 * @return array<string, mixed>
 	 */
 	private static function semantic_search_input_schema(): array {
 		return [
@@ -428,7 +431,7 @@ class Abilities {
 	/**
 	 * Output schema for semantic search.
 	 *
-	 * @return array
+	 * @return array<string, mixed>
 	 */
 	private static function semantic_search_output_schema(): array {
 		return [

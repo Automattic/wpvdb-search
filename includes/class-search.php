@@ -24,8 +24,8 @@ class Search {
 	/**
 	 * Run a search.
 	 *
-	 * @param array $args Search args.
-	 * @return array|\WP_Error Search payload or error.
+	 * @param array<string, mixed> $args Search args.
+	 * @return array<string, mixed>|\WP_Error Search payload or error.
 	 */
 	public static function run( array $args ): array|\WP_Error {
 		$t_start = microtime( true );
@@ -110,10 +110,10 @@ class Search {
 	/**
 	 * Find posts related to a source post by comparing stored source vectors.
 	 *
-	 * @param int   $post_id Source post ID.
-	 * @param int   $limit   Max related posts to return.
-	 * @param array $args    Optional search args.
-	 * @return array|\WP_Error Related payload or error.
+	 * @param int                  $post_id Source post ID.
+	 * @param int                  $limit   Max related posts to return.
+	 * @param array<string, mixed> $args Optional search args.
+	 * @return array<string, mixed>|\WP_Error Related payload or error.
 	 */
 	public static function related_to_post( int $post_id, int $limit = 5, array $args = [] ): array|\WP_Error {
 		$t_start = microtime( true );
@@ -213,8 +213,8 @@ class Search {
 	/**
 	 * Normalize and validate search args.
 	 *
-	 * @param array $args Raw args.
-	 * @return array|\WP_Error
+	 * @param array<string, mixed> $args Raw args.
+	 * @return array<string, mixed>|\WP_Error
 	 */
 	private static function normalize_args( array $args ): array|\WP_Error {
 		$query = isset( $args['query'] ) ? trim( (string) $args['query'] ) : '';
@@ -259,10 +259,10 @@ class Search {
 	/**
 	 * Normalize and validate related-post args.
 	 *
-	 * @param int   $post_id Source post ID.
-	 * @param int   $limit   Max result count.
-	 * @param array $args    Raw args.
-	 * @return array|\WP_Error
+	 * @param int                  $post_id Source post ID.
+	 * @param int                  $limit   Max result count.
+	 * @param array<string, mixed> $args Raw args.
+	 * @return array<string, mixed>|\WP_Error
 	 */
 	private static function normalize_related_args( int $post_id, int $limit, array $args ): array|\WP_Error {
 		if ( $post_id <= 0 || ! get_post( $post_id ) ) {
@@ -318,8 +318,8 @@ class Search {
 	/**
 	 * Fetch source embedding row IDs for related-post lookup.
 	 *
-	 * @param array $args Normalized related args.
-	 * @return array|\WP_Error
+	 * @param array<string, mixed> $args Normalized related args.
+	 * @return list<int>|\WP_Error
 	 */
 	private static function source_embedding_ids( array $args ): array|\WP_Error {
 		global $wpdb;
@@ -353,11 +353,11 @@ class Search {
 	/**
 	 * Dense vector query via MariaDB VEC_DISTANCE_COSINE.
 	 *
-	 * @param string $query   Query text.
-	 * @param int    $limit   Pool size.
-	 * @param array  $args    Normalized args.
-	 * @param array  $timings Timing measurements populated by reference.
-	 * @return array|\WP_Error
+	 * @param string               $query   Query text.
+	 * @param int                  $limit   Pool size.
+	 * @param array<string, mixed> $args    Normalized args.
+	 * @param array<string, int>   $timings Timing measurements populated by reference.
+	 * @return list<array<string, mixed>>|\WP_Error
 	 */
 	private static function dense_query( string $query, int $limit, array $args, array &$timings = [] ): array|\WP_Error {
 		$timings = [
@@ -390,6 +390,9 @@ class Search {
 		global $wpdb;
 		$table = Schema::table();
 		$json  = wp_json_encode( $embedding );
+		if ( ! is_string( $json ) ) {
+			return new \WP_Error( 'bad_embedding', __( 'Embedding provider returned an invalid vector.', 'wpvdb-search' ), [ 'status' => 500 ] );
+		}
 		$vf    = "VEC_FromText('" . esc_sql( $json ) . "')";
 		$df    = "VEC_DISTANCE_COSINE(embedding, $vf)";
 		$where = self::doc_type_where_sql( $args['post_type'] );
@@ -413,10 +416,10 @@ class Search {
 	/**
 	 * Sparse FULLTEXT natural language query.
 	 *
-	 * @param string $query Query text.
-	 * @param int    $limit Pool size.
-	 * @param array  $args  Normalized args.
-	 * @return array
+	 * @param string               $query Query text.
+	 * @param int                  $limit Pool size.
+	 * @param array<string, mixed> $args Normalized args.
+	 * @return list<array<string, mixed>>
 	 */
 	private static function sparse_query( string $query, int $limit, array $args ): array {
 		if ( ! Schema::has_fulltext_index() ) {
@@ -452,6 +455,7 @@ class Search {
 	 *
 	 * @param array  $post_types Normalized post types.
 	 * @param string $prefix     SQL prefix when a predicate exists.
+	 * @phpstan-param list<string> $post_types
 	 * @return string
 	 */
 	private static function doc_type_where_sql( array $post_types, string $prefix = 'WHERE' ): string {
@@ -474,11 +478,11 @@ class Search {
 	/**
 	 * Reciprocal Rank Fusion merge.
 	 *
-	 * @param array  $dense_rows  Dense result rows.
-	 * @param array  $sparse_rows Sparse result rows.
-	 * @param string $mode        Search mode.
-	 * @param int    $limit       Final result count.
-	 * @return array
+	 * @param list<array<string, mixed>> $dense_rows  Dense result rows.
+	 * @param list<array<string, mixed>> $sparse_rows Sparse result rows.
+	 * @param string                     $mode        Search mode.
+	 * @param int                        $limit       Final result count.
+	 * @return list<array<string, mixed>>
 	 */
 	private static function merge( array $dense_rows, array $sparse_rows, string $mode, int $limit ): array {
 		if ( 'dense' === $mode ) {
@@ -536,8 +540,8 @@ class Search {
 	/**
 	 * Wrap dense rows in the same shape as fused results.
 	 *
-	 * @param array $rows Dense rows.
-	 * @return array
+	 * @param list<array<string, mixed>> $rows Dense rows.
+	 * @return list<array<string, mixed>>
 	 */
 	private static function normalize_dense_only( array $rows ): array {
 		$out = [];
@@ -558,8 +562,8 @@ class Search {
 	/**
 	 * Wrap sparse rows in the same shape as fused results.
 	 *
-	 * @param array $rows Sparse rows.
-	 * @return array
+	 * @param list<array<string, mixed>> $rows Sparse rows.
+	 * @return list<array<string, mixed>>
 	 */
 	private static function normalize_sparse_only( array $rows ): array {
 		$out = [];
@@ -580,9 +584,9 @@ class Search {
 	/**
 	 * Attach post metadata and decode HTML entities.
 	 *
-	 * @param array $merged Merged rows from self::merge().
-	 * @param array $args   Normalized args.
-	 * @return array
+	 * @param list<array<string, mixed>> $merged Merged rows from self::merge().
+	 * @param array<string, mixed>       $args   Normalized args.
+	 * @return list<array<string, mixed>>
 	 */
 	private static function enrich( array $merged, array $args ): array {
 		if ( empty( $merged ) ) {
@@ -651,8 +655,8 @@ class Search {
 	/**
 	 * Keep the highest ranked chunk for each post while preserving best metrics.
 	 *
-	 * @param array $results Enriched result rows.
-	 * @return array
+	 * @param list<array<string, mixed>> $results Enriched result rows.
+	 * @return list<array<string, mixed>>
 	 */
 	private static function collapse_by_post( array $results ): array {
 		$collapsed = [];
@@ -722,9 +726,10 @@ class Search {
 	/**
 	 * Return only requested fields. Empty field list returns the full result.
 	 *
-	 * @param array $results Result rows.
-	 * @param array $fields  Requested fields.
-	 * @return array
+	 * @param list<array<string, mixed>> $results Result rows.
+	 * @param array                      $fields  Requested fields.
+	 * @phpstan-param list<string> $fields
+	 * @return list<array<string, mixed>>
 	 */
 	private static function project_results( array $results, array $fields ): array {
 		if ( empty( $fields ) ) {
