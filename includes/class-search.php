@@ -42,7 +42,8 @@ class Search {
 		$mode  = (string) $args['mode'];
 		$query = (string) $args['query'];
 
-		$pool = max( $limit * 3, 30 );
+		$collapse_by_post = ! empty( $args['collapse_by_post'] );
+		$pool             = $collapse_by_post ? max( $limit * 6, 60 ) : max( $limit * 3, 30 );
 
 		$dense_ms       = 0;
 		$dense_embed_ms = 0;
@@ -72,8 +73,13 @@ class Search {
 			}
 		}
 
-		$merged   = self::merge( $dense_rows, $sparse_rows, $mode, $limit );
-		$enriched = self::enrich( $merged, $args );
+		$merge_limit = $collapse_by_post ? $pool : $limit;
+		$merged      = self::merge( $dense_rows, $sparse_rows, $mode, $merge_limit );
+		$enriched    = self::enrich( $merged, $args );
+		if ( $collapse_by_post ) {
+			$enriched = self::collapse_by_post( $enriched );
+		}
+		$enriched = array_slice( $enriched, 0, $limit );
 
 		$response = [
 			'mode'    => $mode,
@@ -174,13 +180,14 @@ class Search {
 		}
 
 		return [
-			'query'         => $query,
-			'limit'         => max( 1, min( self::MAX_LIMIT, $limit ) ),
-			'mode'          => in_array( $mode, self::MODES, true ) ? $mode : 'hybrid',
-			'post_type'     => $post_type,
-			'post_status'   => array_values( array_filter( array_map( 'sanitize_key', $post_status ) ) ),
-			'fields'        => array_values( array_filter( array_map( 'sanitize_key', $fields ) ) ),
-			'include_debug' => ! empty( $args['include_debug'] ),
+			'query'            => $query,
+			'limit'            => max( 1, min( self::MAX_LIMIT, $limit ) ),
+			'mode'             => in_array( $mode, self::MODES, true ) ? $mode : 'hybrid',
+			'post_type'        => $post_type,
+			'post_status'      => array_values( array_filter( array_map( 'sanitize_key', $post_status ) ) ),
+			'fields'           => array_values( array_filter( array_map( 'sanitize_key', $fields ) ) ),
+			'include_debug'    => ! empty( $args['include_debug'] ),
+			'collapse_by_post' => ! empty( $args['collapse_by_post'] ),
 		];
 	}
 
@@ -450,6 +457,7 @@ class Search {
 				$meta[ $p->ID ] = [
 					'title' => html_entity_decode( wp_strip_all_tags( get_the_title( $p ) ), ENT_QUOTES, 'UTF-8' ),
 					'link'  => get_permalink( $p ),
+					'date'  => get_post_time( DATE_W3C, true, $p ),
 				];
 			}
 		}
@@ -467,6 +475,7 @@ class Search {
 				'post_id'       => $pid,
 				'title'         => $meta[ $pid ]['title'],
 				'link'          => $meta[ $pid ]['link'],
+				'date'          => $meta[ $pid ]['date'],
 				'chunk_id'      => (int) $row['chunk_id'],
 				'chunk_content' => html_entity_decode( (string) $row['chunk_content'], ENT_QUOTES, 'UTF-8' ),
 				'summary'       => html_entity_decode( (string) ( $row['summary'] ?? '' ), ENT_QUOTES, 'UTF-8' ),
@@ -480,6 +489,54 @@ class Search {
 			];
 		}
 		return $out;
+	}
+
+	/**
+	 * Keep the highest ranked chunk for each post while preserving best metrics.
+	 *
+	 * @param array $results Enriched result rows.
+	 * @return array
+	 */
+	private static function collapse_by_post( $results ) {
+		$collapsed = [];
+
+		foreach ( $results as $row ) {
+			$post_id = isset( $row['post_id'] ) ? (int) $row['post_id'] : 0;
+			if ( ! $post_id ) {
+				continue;
+			}
+
+			if ( ! isset( $collapsed[ $post_id ] ) ) {
+				$row['matched_chunks'] = 1;
+				$collapsed[ $post_id ] = $row;
+				continue;
+			}
+
+			$collapsed[ $post_id ]['matched_chunks']++;
+			$collapsed[ $post_id ]['sources'] = array_values(
+				array_unique(
+					array_merge(
+						(array) $collapsed[ $post_id ]['sources'],
+						isset( $row['sources'] ) ? (array) $row['sources'] : []
+					)
+				)
+			);
+
+			if ( null !== $row['distance'] && ( null === $collapsed[ $post_id ]['distance'] || $row['distance'] < $collapsed[ $post_id ]['distance'] ) ) {
+				$collapsed[ $post_id ]['distance']   = $row['distance'];
+				$collapsed[ $post_id ]['similarity'] = $row['similarity'];
+			}
+
+			if ( null !== $row['sparse_score'] && ( null === $collapsed[ $post_id ]['sparse_score'] || $row['sparse_score'] > $collapsed[ $post_id ]['sparse_score'] ) ) {
+				$collapsed[ $post_id ]['sparse_score'] = $row['sparse_score'];
+			}
+
+			if ( null !== $row['rrf_score'] && ( null === $collapsed[ $post_id ]['rrf_score'] || $row['rrf_score'] > $collapsed[ $post_id ]['rrf_score'] ) ) {
+				$collapsed[ $post_id ]['rrf_score'] = $row['rrf_score'];
+			}
+		}
+
+		return array_values( $collapsed );
 	}
 
 	/**

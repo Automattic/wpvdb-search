@@ -24,15 +24,16 @@ It is the canonical PHP search service used by [`wpvdb-smart-search`](https://gi
 ```php
 $result = \WPVDB_Search\Search::run(
 	[
-		'query'         => 'markets reacting to economic uncertainty',
-		'limit'         => 10,
-		'mode'          => 'hybrid',
-		'include_debug' => false,
+		'query'            => 'markets reacting to economic uncertainty',
+		'limit'            => 10,
+		'mode'             => 'hybrid',
+		'include_debug'    => false,
+		'collapse_by_post' => false,
 	]
 );
 ```
 
-`mode` accepts `dense`, `sparse`, or `hybrid`.
+`mode` accepts `dense`, `sparse`, or `hybrid`. By default, `Search::run()` returns chunk level rows so consumers can build precise context and debug ranking. Set `collapse_by_post` to `true` when a consumer needs at most one result per post.
 
 ## Abilities API
 
@@ -42,9 +43,10 @@ When the WordPress Abilities API is available, this plugin registers `wpvdb/sema
 $ability = wp_get_ability( 'wpvdb/semantic-search' );
 $result  = $ability->execute(
 	[
-		'query' => 'markets reacting to economic uncertainty',
-		'limit' => 5,
-		'mode'  => 'dense',
+		'query'            => 'markets reacting to economic uncertainty',
+		'limit'            => 5,
+		'mode'             => 'dense',
+		'collapse_by_post' => true,
 	]
 );
 ```
@@ -55,7 +57,7 @@ The Abilities REST route is:
 GET /wp-json/wp-abilities/v1/abilities/wpvdb%2Fsemantic-search/run?input[query]=markets&input[limit]=5&input[mode]=dense
 ```
 
-The Abilities REST controller reads execution parameters from the `input` query parameter for read only abilities. `mode` accepts `dense`, `sparse`, or `hybrid`; the ability defaults to `dense` because hybrid runs both retrieval paths. `limit` is capped at 20. Results include post IDs, titles, canonical URLs, bounded chunk excerpts, score metadata, and source modes.
+The Abilities REST controller reads execution parameters from the `input` query parameter for read only abilities. `mode` accepts `dense`, `sparse`, or `hybrid`; the ability defaults to `dense` because hybrid runs both retrieval paths. `limit` is capped at 20. The ability defaults to one result per post; set `collapse_by_post` to `false` to return chunk level rows. Results include post IDs, titles, canonical URLs, publication dates, bounded chunk excerpts, score metadata, matched chunk counts, and source modes.
 
 Sites that need a stricter audience can filter `wpvdb_search_ability_capability`, for example to require `edit_posts`.
 

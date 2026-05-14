@@ -107,15 +107,17 @@ class Abilities {
 
 		$post_types = self::clamp_post_types( isset( $input['post_type'] ) ? $input['post_type'] : [ 'any' ] );
 		$args       = [
-			'query'       => isset( $input['query'] ) ? (string) $input['query'] : '',
-			'limit'       => isset( $input['limit'] ) ? (int) $input['limit'] : self::DEFAULT_LIMIT,
-			'mode'        => isset( $input['mode'] ) ? (string) $input['mode'] : self::DEFAULT_MODE,
-			'post_type'   => $post_types,
-			'post_status' => self::clamp_post_status( isset( $input['post_status'] ) ? $input['post_status'] : [ 'publish' ], $post_types ),
-			'fields'      => [
+			'query'            => isset( $input['query'] ) ? (string) $input['query'] : '',
+			'limit'            => isset( $input['limit'] ) ? (int) $input['limit'] : self::DEFAULT_LIMIT,
+			'mode'             => isset( $input['mode'] ) ? (string) $input['mode'] : self::DEFAULT_MODE,
+			'post_type'        => $post_types,
+			'post_status'      => self::clamp_post_status( isset( $input['post_status'] ) ? $input['post_status'] : [ 'publish' ], $post_types ),
+			'collapse_by_post' => isset( $input['collapse_by_post'] ) ? (bool) $input['collapse_by_post'] : true,
+			'fields'           => [
 				'post_id',
 				'title',
 				'link',
+				'date',
 				'chunk_content',
 				'summary',
 				'distance',
@@ -123,6 +125,7 @@ class Abilities {
 				'sparse_score',
 				'rrf_score',
 				'sources',
+				'matched_chunks',
 			],
 		];
 
@@ -277,6 +280,14 @@ class Abilities {
 				'sources' => $sources,
 			];
 
+			if ( ! empty( $row['date'] ) ) {
+				$item['date'] = (string) $row['date'];
+			}
+
+			if ( isset( $row['matched_chunks'] ) ) {
+				$item['matched_chunks'] = max( 1, (int) $row['matched_chunks'] );
+			}
+
 			$score = self::score( $row, $mode );
 			if ( null !== $score['value'] ) {
 				$item['score']      = $score['value'];
@@ -366,26 +377,26 @@ class Abilities {
 		return [
 			'type'                 => 'object',
 			'properties'           => [
-				'query'       => [
+				'query'            => [
 					'type'        => 'string',
 					'description' => __( 'Free form search query.', 'wpvdb-search' ),
 					'minLength'   => 1,
 					'maxLength'   => Search::MAX_QUERY,
 				],
-				'limit'       => [
+				'limit'            => [
 					'type'        => 'integer',
 					'description' => __( 'Maximum number of results to return.', 'wpvdb-search' ),
 					'default'     => self::DEFAULT_LIMIT,
 					'minimum'     => 1,
 					'maximum'     => Search::MAX_LIMIT,
 				],
-				'mode'        => [
+				'mode'             => [
 					'type'        => 'string',
 					'description' => __( 'Search mode.', 'wpvdb-search' ),
 					'default'     => self::DEFAULT_MODE,
 					'enum'        => Search::MODES,
 				],
-				'post_type'   => [
+				'post_type'        => [
 					'type'        => 'array',
 					'description' => __( 'Post types to search.', 'wpvdb-search' ),
 					'items'       => [
@@ -393,13 +404,18 @@ class Abilities {
 					],
 					'default'     => [ 'any' ],
 				],
-				'post_status' => [
+				'post_status'      => [
 					'type'        => 'array',
 					'description' => __( 'Post statuses to search.', 'wpvdb-search' ),
 					'items'       => [
 						'type' => 'string',
 					],
 					'default'     => [ 'publish' ],
+				],
+				'collapse_by_post' => [
+					'type'        => 'boolean',
+					'description' => __( 'Return at most one result per post.', 'wpvdb-search' ),
+					'default'     => true,
 				],
 			],
 			'required'             => [ 'query' ],
@@ -428,35 +444,42 @@ class Abilities {
 					'items' => [
 						'type'       => 'object',
 						'properties' => [
-							'post_id'    => [
+							'post_id'        => [
 								'type' => 'integer',
 							],
-							'title'      => [
+							'title'          => [
 								'type' => 'string',
 							],
-							'url'        => [
+							'url'            => [
 								'type'   => 'string',
 								'format' => 'uri',
 							],
-							'excerpt'    => [
+							'date'           => [
+								'type'   => 'string',
+								'format' => 'date-time',
+							],
+							'excerpt'        => [
 								'type' => 'string',
 							],
-							'sources'    => [
+							'sources'        => [
 								'type'  => 'array',
 								'items' => [
 									'type' => 'string',
 									'enum' => [ 'dense', 'sparse' ],
 								],
 							],
-							'score'      => [
+							'score'          => [
 								'type' => 'number',
 							],
-							'score_type' => [
+							'score_type'     => [
 								'type' => 'string',
 								'enum' => [ 'cosine_similarity', 'rrf', 'fulltext' ],
 							],
-							'distance'   => [
+							'distance'       => [
 								'type' => 'number',
+							],
+							'matched_chunks' => [
+								'type' => 'integer',
 							],
 						],
 						'required'   => [ 'post_id', 'title', 'url', 'excerpt', 'sources' ],
