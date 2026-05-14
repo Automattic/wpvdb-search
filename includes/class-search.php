@@ -108,44 +108,6 @@ class Search {
 	}
 
 	/**
-	 * Compatibility wrapper for the Smart Search REST response.
-	 *
-	 * @param string $query Query text.
-	 * @param int    $limit Max results to return.
-	 * @param string $mode  One of hybrid, dense, or sparse.
-	 * @return array|\WP_Error
-	 */
-	public static function query( $query, $limit = 10, $mode = 'hybrid' ) {
-		$result = self::run(
-			[
-				'query'         => $query,
-				'limit'         => $limit,
-				'mode'          => $mode,
-				'include_debug' => true,
-			]
-		);
-
-		if ( is_wp_error( $result ) ) {
-			return $result;
-		}
-
-		$debug = isset( $result['debug'] ) && is_array( $result['debug'] ) ? $result['debug'] : [];
-		unset( $result['debug'] );
-
-		return array_merge(
-			[
-				'mode'  => $result['mode'],
-				'query' => $result['query'],
-				'limit' => $result['limit'],
-			],
-			$debug,
-			[
-				'results' => $result['results'],
-			]
-		);
-	}
-
-	/**
 	 * Normalize and validate search args.
 	 *
 	 * @param array $args Raw args.

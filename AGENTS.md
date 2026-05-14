@@ -14,7 +14,6 @@ Agent guidance for this repository. Keep public documentation in `README.md`; ke
 - The plugin slug is `wpvdb-search`.
 - The PHP namespace is `WPVDB_Search`.
 - The public API entrypoint is `WPVDB_Search\Search::run( array $args )`.
-- `Search::query()` exists only as a compatibility shim for Smart Search.
 - Sparse mode should degrade to an empty result set if the FULLTEXT index is unavailable or the query has no usable terms.
 
 ## Development Notes
