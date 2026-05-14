@@ -23,6 +23,8 @@
 
 	<file>.</file>
 
+	<exclude-pattern>*/.github/*</exclude-pattern>
+	<exclude-pattern>*/.hooks/*</exclude-pattern>
 	<exclude-pattern>*/vendor/*</exclude-pattern>
 	<exclude-pattern>*/release/*</exclude-pattern>
 	<exclude-pattern>*/stubs/*</exclude-pattern>
