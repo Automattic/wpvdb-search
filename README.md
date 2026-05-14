@@ -35,6 +35,18 @@ $result = \WPVDB_Search\Search::run(
 
 `mode` accepts `dense`, `sparse`, or `hybrid`. By default, `Search::run()` returns chunk level rows so consumers can build precise context and debug ranking. Set `collapse_by_post` to `true` when a consumer needs at most one result per post.
 
+Related posts use stored source vectors and do not re-embed the source post:
+
+```php
+$related = \WPVDB_Search\Search::related_to_post(
+	123,
+	5,
+	[
+		'collapse_by_post' => true,
+	]
+);
+```
+
 ## Abilities API
 
 When the WordPress Abilities API is available, this plugin registers `wpvdb/semantic-search`. The ability is read only, requires the current user to have `read` by default, and is marked `meta.mcp.public` so MCP Adapter can discover it.

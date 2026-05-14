@@ -13,10 +13,11 @@ defined( 'ABSPATH' ) || exit;
  * Search runner.
  */
 class Search {
-	const MODES     = [ 'hybrid', 'dense', 'sparse' ];
-	const RRF_K     = 60;
-	const MAX_LIMIT = 20;
-	const MAX_QUERY = 500;
+	const MODES                 = [ 'hybrid', 'dense', 'sparse' ];
+	const RRF_K                 = 60;
+	const MAX_LIMIT             = 20;
+	const MAX_QUERY             = 500;
+	const RELATED_SOURCE_CHUNKS = 3;
 
 	/**
 	 * Run a search.
@@ -108,6 +109,111 @@ class Search {
 	}
 
 	/**
+	 * Find posts related to a source post by comparing stored source vectors.
+	 *
+	 * @param int   $post_id Source post ID.
+	 * @param int   $limit   Max related posts to return.
+	 * @param array $args    Optional search args.
+	 * @return array|\WP_Error Related payload or error.
+	 */
+	public static function related_to_post( $post_id, $limit = 5, array $args = [] ) {
+		$t_start = microtime( true );
+		$args    = self::normalize_related_args( $post_id, $limit, $args );
+		if ( is_wp_error( $args ) ) {
+			return $args;
+		}
+
+		global $wpdb;
+		$table = Schema::table();
+
+		$source_ids = self::source_embedding_ids( $args );
+		if ( is_wp_error( $source_ids ) ) {
+			return $source_ids;
+		}
+		if ( empty( $source_ids ) ) {
+			return [
+				'mode'    => 'related',
+				'post_id' => $args['post_id'],
+				'limit'   => $args['limit'],
+				'results' => [],
+			];
+		}
+
+		$pool       = max( $args['limit'] * 6, 60 );
+		$candidates = [];
+
+		foreach ( $source_ids as $source_id ) {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted; user input is bound via prepare().
+			$sql = $wpdb->prepare(
+				"SELECT e.id, e.doc_id, e.chunk_id, e.chunk_content, e.summary,
+				        VEC_DISTANCE_COSINE(e.embedding, s.embedding) as distance
+				 FROM {$table} e
+				 INNER JOIN {$table} s ON s.id = %d
+				 WHERE e.doc_id <> %d
+				 AND e.doc_type = %s
+				 AND e.model = %s
+				 ORDER BY distance
+				 LIMIT %d",
+				(int) $source_id,
+				$args['post_id'],
+				$args['doc_type'],
+				$args['model'],
+				$pool
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $sql is prepared above; vector ordering must stay in SQL.
+			$rows = $wpdb->get_results( $sql, ARRAY_A );
+			if ( $wpdb->last_error ) {
+				return new \WP_Error( 'db_error', $wpdb->last_error, [ 'status' => 500 ] );
+			}
+
+			foreach ( (array) $rows as $row ) {
+				$id       = isset( $row['id'] ) ? (int) $row['id'] : 0;
+				$distance = isset( $row['distance'] ) ? (float) $row['distance'] : null;
+				if ( ! $id || null === $distance ) {
+					continue;
+				}
+				if ( ! isset( $candidates[ $id ] ) || $distance < (float) $candidates[ $id ]['distance'] ) {
+					$candidates[ $id ] = $row;
+				}
+			}
+		}
+
+		$candidates = array_values( $candidates );
+		usort(
+			$candidates,
+			static function ( $a, $b ) {
+				return (float) $a['distance'] <=> (float) $b['distance'];
+			}
+		);
+
+		$merged   = self::normalize_dense_only( array_slice( $candidates, 0, $pool ) );
+		$enriched = self::enrich( $merged, $args );
+		if ( ! empty( $args['collapse_by_post'] ) ) {
+			$enriched = self::collapse_by_post( $enriched );
+		}
+		$enriched = array_slice( $enriched, 0, $args['limit'] );
+
+		$response = [
+			'mode'    => 'related',
+			'post_id' => $args['post_id'],
+			'limit'   => $args['limit'],
+			'results' => self::project_results( $enriched, $args['fields'] ),
+		];
+
+		if ( ! empty( $args['include_debug'] ) ) {
+			$response['debug'] = [
+				'elapsed_ms'      => (int) round( ( microtime( true ) - $t_start ) * 1000 ),
+				'source_chunks'   => count( $source_ids ),
+				'candidate_count' => count( $candidates ),
+			];
+		}
+
+		return $response;
+	}
+
+	/**
 	 * Normalize and validate search args.
 	 *
 	 * @param array $args Raw args.
@@ -151,6 +257,101 @@ class Search {
 			'include_debug'    => ! empty( $args['include_debug'] ),
 			'collapse_by_post' => ! empty( $args['collapse_by_post'] ),
 		];
+	}
+
+	/**
+	 * Normalize and validate related-post args.
+	 *
+	 * @param int   $post_id Source post ID.
+	 * @param int   $limit   Max result count.
+	 * @param array $args    Raw args.
+	 * @return array|\WP_Error
+	 */
+	private static function normalize_related_args( $post_id, $limit, array $args ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 || ! get_post( $post_id ) ) {
+			return new \WP_Error( 'invalid_post', __( 'Source post was not found.', 'wpvdb-search' ), [ 'status' => 404 ] );
+		}
+
+		if ( ! class_exists( '\WPVDB\Settings' ) ) {
+			return new \WP_Error( 'wpvdb_missing', __( 'wpvdb plugin classes not available.', 'wpvdb-search' ), [ 'status' => 500 ] );
+		}
+
+		$doc_type = isset( $args['doc_type'] ) ? sanitize_key( (string) $args['doc_type'] ) : '';
+		if ( '' === $doc_type ) {
+			$doc_type = get_post_type( $post_id );
+		}
+		if ( ! is_string( $doc_type ) || '' === $doc_type ) {
+			$doc_type = 'post';
+		}
+
+		$model = isset( $args['model'] ) ? sanitize_text_field( (string) $args['model'] ) : '';
+		if ( '' === $model ) {
+			$model = \WPVDB\Settings::get_default_model();
+		}
+		if ( '' === $model ) {
+			return new \WP_Error( 'model_missing', __( 'Embedding model is not configured.', 'wpvdb-search' ), [ 'status' => 500 ] );
+		}
+
+		$post_type   = isset( $args['post_type'] ) ? (array) $args['post_type'] : [ $doc_type ];
+		$post_status = isset( $args['post_status'] ) ? (array) $args['post_status'] : [ 'publish' ];
+		$fields      = isset( $args['fields'] ) ? (array) $args['fields'] : [];
+
+		$post_type = array_values( array_filter( array_map( 'sanitize_key', $post_type ) ) );
+		if ( empty( $post_type ) ) {
+			$post_type = [ $doc_type ];
+		}
+
+		$source_chunks = isset( $args['source_chunks'] ) ? (int) $args['source_chunks'] : self::RELATED_SOURCE_CHUNKS;
+		$source_chunks = (int) apply_filters( 'wpvdb_search_related_source_chunks', $source_chunks, $post_id, $args );
+
+		return [
+			'post_id'          => $post_id,
+			'limit'            => max( 1, min( self::MAX_LIMIT, (int) $limit ) ),
+			'doc_type'         => $doc_type,
+			'model'            => $model,
+			'post_type'        => $post_type,
+			'post_status'      => array_values( array_filter( array_map( 'sanitize_key', $post_status ) ) ),
+			'fields'           => array_values( array_filter( array_map( 'sanitize_key', $fields ) ) ),
+			'include_debug'    => ! empty( $args['include_debug'] ),
+			'collapse_by_post' => isset( $args['collapse_by_post'] ) ? ! empty( $args['collapse_by_post'] ) : true,
+			'source_chunks'    => max( 1, min( 10, $source_chunks ) ),
+		];
+	}
+
+	/**
+	 * Fetch source embedding row IDs for related-post lookup.
+	 *
+	 * @param array $args Normalized related args.
+	 * @return array|\WP_Error
+	 */
+	private static function source_embedding_ids( $args ) {
+		global $wpdb;
+		$table = Schema::table();
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted; user input is bound via prepare().
+		$sql = $wpdb->prepare(
+			"SELECT id
+			 FROM {$table}
+			 WHERE doc_id = %d
+			 AND doc_type = %s
+			 AND model = %s
+			 ORDER BY chunk_index ASC
+			 LIMIT %d",
+			$args['post_id'],
+			$args['doc_type'],
+			$args['model'],
+			$args['source_chunks']
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $sql is prepared above.
+		$ids = $wpdb->get_col( $sql );
+		if ( $wpdb->last_error ) {
+			return new \WP_Error( 'db_error', $wpdb->last_error, [ 'status' => 500 ] );
+		}
+
+		return array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
 	}
 
 	/**
