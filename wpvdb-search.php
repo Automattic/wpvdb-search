@@ -1,26 +1,29 @@
 <?php
 /**
- * Plugin Name:      WPVDB Search
- * Plugin URI:       https://github.com/rbcorrales/wpvdb-search
- * Description:      Shared dense, sparse, and hybrid search primitives for wpvdb.
- * Version:          0.4.0
- * Author:           Automattic, Ramon Corrales
- * Author URI:       https://automattic.com/
- * Requires PHP:     7.4
- * Requires Plugins: wpvdb
- * License:          GPL-2.0-or-later
- * License URI:      https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:      wpvdb-search
- * Domain Path:      /languages
+ * Plugin Name:       WPVDB Search
+ * Plugin URI:        https://github.com/rbcorrales/wpvdb-search
+ * Description:       Shared dense, sparse, and hybrid search primitives for wpvdb.
+ * Version:           0.5.0
+ * Author:            Automattic, Ramon Corrales
+ * Author URI:        https://automattic.com/
+ * Requires at least: 6.9
+ * Requires PHP:      8.3
+ * Requires Plugins:  wpvdb
+ * License:           GPL-2.0-or-later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       wpvdb-search
+ * Domain Path:       /languages
  *
  * @package WPVDB_Search
  */
+
+declare(strict_types=1);
 
 namespace WPVDB_Search;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPVDB_SEARCH_VERSION', '0.4.0' );
+define( 'WPVDB_SEARCH_VERSION', '0.5.0' );
 define( 'WPVDB_SEARCH_FILE', __FILE__ );
 define( 'WPVDB_SEARCH_DIR', __DIR__ );
 
@@ -31,7 +34,7 @@ require_once __DIR__ . '/includes/class-abilities.php';
 /**
  * Show an admin notice when wpvdb is missing.
  */
-function dependency_notice() {
+function dependency_notice(): void {
 	if ( ! current_user_can( 'activate_plugins' ) ) {
 		return;
 	}
@@ -44,7 +47,7 @@ function dependency_notice() {
 
 add_action(
 	'plugins_loaded',
-	static function () {
+	static function (): void {
 		load_plugin_textdomain(
 			'wpvdb-search',
 			false,

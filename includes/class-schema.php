@@ -5,6 +5,8 @@
  * @package WPVDB_Search
  */
 
+declare(strict_types=1);
+
 namespace WPVDB_Search;
 
 defined( 'ABSPATH' ) || exit;
@@ -13,13 +15,13 @@ defined( 'ABSPATH' ) || exit;
  * Ensures the FULLTEXT index exists on wpvdb's embeddings table.
  */
 class Schema {
-	const OPTION_INSTALLED = 'wpvdb_search_fulltext_installed';
-	const INDEX_NAME       = 'wpvdb_ss_ft_chunk';
+	public const string OPTION_INSTALLED = 'wpvdb_search_fulltext_installed';
+	public const string INDEX_NAME       = 'wpvdb_ss_ft_chunk';
 
 	/**
 	 * Register hooks.
 	 */
-	public static function init() {
+	public static function init(): void {
 		add_action( 'init', [ __CLASS__, 'ensure_fulltext_index' ] );
 	}
 
@@ -28,7 +30,7 @@ class Schema {
 	 *
 	 * @return string
 	 */
-	public static function table() {
+	public static function table(): string {
 		global $wpdb;
 		return $wpdb->prefix . 'wpvdb_embeddings';
 	}
@@ -38,7 +40,7 @@ class Schema {
 	 *
 	 * @return bool
 	 */
-	public static function has_fulltext_index() {
+	public static function has_fulltext_index(): bool {
 		global $wpdb;
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted.
@@ -49,7 +51,7 @@ class Schema {
 	/**
 	 * Create the FULLTEXT index if it is missing. Runs once per option flag.
 	 */
-	public static function ensure_fulltext_index() {
+	public static function ensure_fulltext_index(): void {
 		if ( get_option( self::OPTION_INSTALLED ) === '1' ) {
 			return;
 		}

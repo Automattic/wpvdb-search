@@ -5,6 +5,8 @@
  * @package WPVDB_Search
  */
 
+declare(strict_types=1);
+
 namespace WPVDB_Search;
 
 defined( 'ABSPATH' ) || exit;
@@ -13,19 +15,19 @@ defined( 'ABSPATH' ) || exit;
  * Registers search abilities when the Abilities API is available.
  */
 class Abilities {
-	const CATEGORY        = 'wpvdb-search';
-	const SEMANTIC_SEARCH = 'wpvdb/semantic-search';
-	const MAX_EXCERPT     = 600;
-	const DEFAULT_LIMIT   = 10;
-	const DEFAULT_MODE    = 'dense';
-	const RATE_MAX        = 20;
-	const RATE_WINDOW     = 60;
-	const SUMMARY_SKIP    = '[AI Summary placeholder]';
+	public const string CATEGORY        = 'wpvdb-search';
+	public const string SEMANTIC_SEARCH = 'wpvdb/semantic-search';
+	public const int MAX_EXCERPT        = 600;
+	public const int DEFAULT_LIMIT      = 10;
+	public const string DEFAULT_MODE    = 'dense';
+	public const int RATE_MAX           = 20;
+	public const int RATE_WINDOW        = 60;
+	public const string SUMMARY_SKIP    = '[AI Summary placeholder]';
 
 	/**
 	 * Register hooks.
 	 */
-	public static function init() {
+	public static function init(): void {
 		if ( ! function_exists( 'wp_register_ability' ) || ! function_exists( 'wp_register_ability_category' ) ) {
 			return;
 		}
@@ -37,7 +39,7 @@ class Abilities {
 	/**
 	 * Register the wpvdb search category.
 	 */
-	public static function register_category() {
+	public static function register_category(): void {
 		wp_register_ability_category(
 			self::CATEGORY,
 			[
@@ -50,7 +52,7 @@ class Abilities {
 	/**
 	 * Register search abilities.
 	 */
-	public static function register_abilities() {
+	public static function register_abilities(): void {
 		wp_register_ability(
 			self::SEMANTIC_SEARCH,
 			[
@@ -80,10 +82,10 @@ class Abilities {
 	/**
 	 * Check whether the current user can search.
 	 *
-	 * @param array|null $input Ability input.
+	 * @param mixed $input Ability input.
 	 * @return bool
 	 */
-	public static function can_search( $input = null ) {
+	public static function can_search( mixed $input = null ): bool {
 		$capability = (string) apply_filters( 'wpvdb_search_ability_capability', 'read', $input );
 		if ( '' === $capability ) {
 			return false;
@@ -95,10 +97,10 @@ class Abilities {
 	/**
 	 * Execute semantic search.
 	 *
-	 * @param array $input Ability input.
+	 * @param mixed $input Ability input.
 	 * @return array|\WP_Error
 	 */
-	public static function execute_semantic_search( $input ) {
+	public static function execute_semantic_search( mixed $input ): array|\WP_Error {
 		$input      = is_array( $input ) ? $input : [];
 		$rate_check = self::check_rate_limit();
 		if ( is_wp_error( $rate_check ) ) {
@@ -147,7 +149,7 @@ class Abilities {
 	 *
 	 * @return true|\WP_Error
 	 */
-	private static function check_rate_limit() {
+	private static function check_rate_limit(): true|\WP_Error {
 		$max = (int) apply_filters( 'wpvdb_search_ability_rate_max', self::RATE_MAX );
 		if ( $max <= 0 ) {
 			return true;
@@ -172,7 +174,7 @@ class Abilities {
 	 * @param mixed $post_type Raw post type input.
 	 * @return array
 	 */
-	private static function clamp_post_types( $post_type ) {
+	private static function clamp_post_types( mixed $post_type ): array {
 		$requested = self::string_list( $post_type, [ 'any' ] );
 		if ( in_array( 'any', $requested, true ) ) {
 			return [ 'any' ];
@@ -196,7 +198,7 @@ class Abilities {
 	 * @param array $post_types  Clamped post types.
 	 * @return array
 	 */
-	private static function clamp_post_status( $post_status, $post_types ) {
+	private static function clamp_post_status( mixed $post_status, array $post_types ): array {
 		$requested = self::string_list( $post_status, [ 'publish' ] );
 		$allowed   = [ 'publish' ];
 
@@ -221,7 +223,7 @@ class Abilities {
 	 * @param array $post_types Clamped post types.
 	 * @return bool
 	 */
-	private static function can_read_private_posts( $post_types ) {
+	private static function can_read_private_posts( array $post_types ): bool {
 		if ( in_array( 'any', $post_types, true ) ) {
 			$post_types = get_post_types(
 				[
@@ -249,7 +251,7 @@ class Abilities {
 	 * @param array $fallback Fallback when empty.
 	 * @return array
 	 */
-	private static function string_list( $value, $fallback ) {
+	private static function string_list( mixed $value, array $fallback ): array {
 		$values = is_array( $value ) ? $value : [ $value ];
 		$values = array_values( array_filter( array_map( 'sanitize_key', $values ) ) );
 		return empty( $values ) ? $fallback : array_values( array_unique( $values ) );
@@ -262,7 +264,7 @@ class Abilities {
 	 * @param string $mode    Search mode.
 	 * @return array
 	 */
-	private static function format_results( $results, $mode ) {
+	private static function format_results( array $results, string $mode ): array {
 		$formatted = [];
 
 		foreach ( $results as $row ) {
@@ -310,7 +312,7 @@ class Abilities {
 	 * @param array $row Search result row.
 	 * @return string
 	 */
-	private static function excerpt( $row ) {
+	private static function excerpt( array $row ): string {
 		$candidates = [
 			isset( $row['chunk_content'] ) ? (string) $row['chunk_content'] : '',
 			isset( $row['summary'] ) ? (string) $row['summary'] : '',
@@ -332,7 +334,7 @@ class Abilities {
 	 * @param string $text Text.
 	 * @return string
 	 */
-	private static function truncate( $text ) {
+	private static function truncate( string $text ): string {
 		if ( function_exists( 'mb_strlen' ) && function_exists( 'mb_substr' ) ) {
 			return mb_strlen( $text ) > self::MAX_EXCERPT ? mb_substr( $text, 0, self::MAX_EXCERPT - 1 ) . '…' : $text;
 		}
@@ -347,13 +349,13 @@ class Abilities {
 	 * @param string $mode Search mode.
 	 * @return array
 	 */
-	private static function score( $row, $mode ) {
+	private static function score( array $row, string $mode ): array {
 		$keys = [
 			'hybrid' => [ 'rrf_score', 'rrf' ],
 			'dense'  => [ 'similarity', 'cosine_similarity' ],
 			'sparse' => [ 'sparse_score', 'fulltext' ],
 		];
-		$spec = isset( $keys[ $mode ] ) ? $keys[ $mode ] : $keys['dense'];
+		$spec = $keys[ $mode ] ?? $keys['dense'];
 
 		if ( isset( $row[ $spec[0] ] ) && is_numeric( $row[ $spec[0] ] ) ) {
 			return [
@@ -373,7 +375,7 @@ class Abilities {
 	 *
 	 * @return array
 	 */
-	private static function semantic_search_input_schema() {
+	private static function semantic_search_input_schema(): array {
 		return [
 			'type'                 => 'object',
 			'properties'           => [
@@ -428,7 +430,7 @@ class Abilities {
 	 *
 	 * @return array
 	 */
-	private static function semantic_search_output_schema() {
+	private static function semantic_search_output_schema(): array {
 		return [
 			'type'       => 'object',
 			'properties' => [

@@ -2,12 +2,12 @@
 
 WPVDB Search provides shared dense, sparse, and hybrid search primitives for content indexed by [`wpvdb`](https://github.com/rbcorrales/wpvdb).
 
-It is the canonical PHP search service used by [`wpvdb-smart-search`](https://github.com/rbcorrales/wpvdb-smart-search) and future consumers such as WordPress Abilities, MCP clients, related-post surfaces, and WordPress query integrations.
+It is the canonical PHP search service used by [`wpvdb-smart-search`](https://github.com/rbcorrales/wpvdb-smart-search), WordPress Abilities, MCP clients, related-post surfaces, and WordPress query integrations.
 
 ## Requirements
 
-- WordPress with [`wpvdb`](https://github.com/rbcorrales/wpvdb) installed and configured.
-- PHP 7.4 or newer.
+- WordPress 6.9 or newer with [`wpvdb`](https://github.com/rbcorrales/wpvdb) installed and configured.
+- PHP 8.3 or newer.
 - MariaDB with native vector support for dense search.
 - Composer for PHP development tooling.
 
@@ -49,7 +49,7 @@ $related = \WPVDB_Search\Search::related_to_post(
 
 ## Abilities API
 
-When the WordPress Abilities API is available, this plugin registers `wpvdb/semantic-search`. The ability is read only, requires the current user to have `read` by default, and is marked `meta.mcp.public` so MCP Adapter can discover it.
+On WordPress 6.9 or newer, this plugin registers `wpvdb/semantic-search`. The ability is read only, requires the current user to have `read` by default, and is marked `meta.mcp.public` so MCP Adapter can discover it.
 
 ```php
 $ability = wp_get_ability( 'wpvdb/semantic-search' );

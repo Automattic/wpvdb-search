@@ -5,6 +5,8 @@
  * @package WPVDB_Search
  */
 
+declare(strict_types=1);
+
 namespace WPVDB_Search;
 
 defined( 'ABSPATH' ) || exit;
@@ -13,11 +15,11 @@ defined( 'ABSPATH' ) || exit;
  * Search runner.
  */
 class Search {
-	const MODES                 = [ 'hybrid', 'dense', 'sparse' ];
-	const RRF_K                 = 60;
-	const MAX_LIMIT             = 20;
-	const MAX_QUERY             = 500;
-	const RELATED_SOURCE_CHUNKS = 3;
+	public const array MODES               = [ 'hybrid', 'dense', 'sparse' ];
+	public const int RRF_K                 = 60;
+	public const int MAX_LIMIT             = 20;
+	public const int MAX_QUERY             = 500;
+	public const int RELATED_SOURCE_CHUNKS = 3;
 
 	/**
 	 * Run a search.
@@ -25,7 +27,7 @@ class Search {
 	 * @param array $args Search args.
 	 * @return array|\WP_Error Search payload or error.
 	 */
-	public static function run( array $args ) {
+	public static function run( array $args ): array|\WP_Error {
 		$t_start = microtime( true );
 		$args    = self::normalize_args( $args );
 		if ( is_wp_error( $args ) ) {
@@ -116,7 +118,7 @@ class Search {
 	 * @param array $args    Optional search args.
 	 * @return array|\WP_Error Related payload or error.
 	 */
-	public static function related_to_post( $post_id, $limit = 5, array $args = [] ) {
+	public static function related_to_post( int $post_id, int $limit = 5, array $args = [] ): array|\WP_Error {
 		$t_start = microtime( true );
 		$args    = self::normalize_related_args( $post_id, $limit, $args );
 		if ( is_wp_error( $args ) ) {
@@ -183,9 +185,7 @@ class Search {
 		$candidates = array_values( $candidates );
 		usort(
 			$candidates,
-			static function ( $a, $b ) {
-				return (float) $a['distance'] <=> (float) $b['distance'];
-			}
+			static fn ( array $a, array $b ): int => (float) $a['distance'] <=> (float) $b['distance']
 		);
 
 		$merged   = self::normalize_dense_only( array_slice( $candidates, 0, $pool ) );
@@ -219,7 +219,7 @@ class Search {
 	 * @param array $args Raw args.
 	 * @return array|\WP_Error
 	 */
-	private static function normalize_args( array $args ) {
+	private static function normalize_args( array $args ): array|\WP_Error {
 		$query = isset( $args['query'] ) ? trim( (string) $args['query'] ) : '';
 		if ( '' === $query ) {
 			return new \WP_Error( 'empty_query', __( 'Query text is required.', 'wpvdb-search' ), [ 'status' => 400 ] );
@@ -267,8 +267,7 @@ class Search {
 	 * @param array $args    Raw args.
 	 * @return array|\WP_Error
 	 */
-	private static function normalize_related_args( $post_id, $limit, array $args ) {
-		$post_id = (int) $post_id;
+	private static function normalize_related_args( int $post_id, int $limit, array $args ): array|\WP_Error {
 		if ( $post_id <= 0 || ! get_post( $post_id ) ) {
 			return new \WP_Error( 'invalid_post', __( 'Source post was not found.', 'wpvdb-search' ), [ 'status' => 404 ] );
 		}
@@ -325,7 +324,7 @@ class Search {
 	 * @param array $args Normalized related args.
 	 * @return array|\WP_Error
 	 */
-	private static function source_embedding_ids( $args ) {
+	private static function source_embedding_ids( array $args ): array|\WP_Error {
 		global $wpdb;
 		$table = Schema::table();
 
@@ -363,7 +362,7 @@ class Search {
 	 * @param array  $timings Timing measurements populated by reference.
 	 * @return array|\WP_Error
 	 */
-	private static function dense_query( $query, $limit, $args, &$timings = [] ) {
+	private static function dense_query( string $query, int $limit, array $args, array &$timings = [] ): array|\WP_Error {
 		$timings = [
 			'embed_ms' => 0,
 			'db_ms'    => 0,
@@ -422,7 +421,7 @@ class Search {
 	 * @param array  $args  Normalized args.
 	 * @return array
 	 */
-	private static function sparse_query( $query, $limit, $args ) {
+	private static function sparse_query( string $query, int $limit, array $args ): array {
 		if ( ! Schema::has_fulltext_index() ) {
 			return [];
 		}
@@ -458,7 +457,7 @@ class Search {
 	 * @param string $prefix     SQL prefix when a predicate exists.
 	 * @return string
 	 */
-	private static function doc_type_where_sql( $post_types, $prefix = 'WHERE' ) {
+	private static function doc_type_where_sql( array $post_types, string $prefix = 'WHERE' ): string {
 		if ( in_array( 'any', $post_types, true ) ) {
 			return '';
 		}
@@ -484,7 +483,7 @@ class Search {
 	 * @param int    $limit       Final result count.
 	 * @return array
 	 */
-	private static function merge( $dense_rows, $sparse_rows, $mode, $limit ) {
+	private static function merge( array $dense_rows, array $sparse_rows, string $mode, int $limit ): array {
 		if ( 'dense' === $mode ) {
 			return array_slice( self::normalize_dense_only( $dense_rows ), 0, $limit );
 		}
@@ -531,9 +530,7 @@ class Search {
 
 		uasort(
 			$merged,
-			static function ( $a, $b ) {
-				return $b['rrf'] <=> $a['rrf'];
-			}
+			static fn ( array $a, array $b ): int => $b['rrf'] <=> $a['rrf']
 		);
 
 		return array_slice( array_values( $merged ), 0, $limit );
@@ -545,7 +542,7 @@ class Search {
 	 * @param array $rows Dense rows.
 	 * @return array
 	 */
-	private static function normalize_dense_only( $rows ) {
+	private static function normalize_dense_only( array $rows ): array {
 		$out = [];
 		foreach ( $rows as $rank => $row ) {
 			$out[] = [
@@ -567,7 +564,7 @@ class Search {
 	 * @param array $rows Sparse rows.
 	 * @return array
 	 */
-	private static function normalize_sparse_only( $rows ) {
+	private static function normalize_sparse_only( array $rows ): array {
 		$out = [];
 		foreach ( $rows as $rank => $row ) {
 			$out[] = [
@@ -590,7 +587,7 @@ class Search {
 	 * @param array $args   Normalized args.
 	 * @return array
 	 */
-	private static function enrich( $merged, $args ) {
+	private static function enrich( array $merged, array $args ): array {
 		if ( empty( $merged ) ) {
 			return [];
 		}
@@ -660,7 +657,7 @@ class Search {
 	 * @param array $results Enriched result rows.
 	 * @return array
 	 */
-	private static function collapse_by_post( $results ) {
+	private static function collapse_by_post( array $results ): array {
 		$collapsed = [];
 
 		foreach ( $results as $row ) {
@@ -708,7 +705,7 @@ class Search {
 	 * @param mixed $embedding Embedding returned by wpvdb.
 	 * @return bool
 	 */
-	private static function is_valid_embedding( $embedding ) {
+	private static function is_valid_embedding( mixed $embedding ): bool {
 		if ( ! is_array( $embedding ) || empty( $embedding ) ) {
 			return false;
 		}
@@ -732,7 +729,7 @@ class Search {
 	 * @param array $fields  Requested fields.
 	 * @return array
 	 */
-	private static function project_results( $results, $fields ) {
+	private static function project_results( array $results, array $fields ): array {
 		if ( empty( $fields ) ) {
 			return $results;
 		}

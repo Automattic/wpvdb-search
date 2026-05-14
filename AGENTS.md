@@ -19,5 +19,5 @@ Agent guidance for this repository. Keep public documentation in `README.md`; ke
 ## Development Notes
 
 - Build and lint commands are defined in `composer.json`; prefer those scripts.
-- PHP 7.4 compatibility is required.
+- PHP 8.3 compatibility is required.
 - Keep result projection explicit. Consumers should ask for fields instead of receiving UI-only payloads by default.
