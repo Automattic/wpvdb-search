@@ -37,8 +37,6 @@ class Search {
 
 		global $wpdb;
 		$table = Schema::table();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Trusted table name, no caching needed for a live count.
-		$total_vectors = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
 
 		$limit = (int) $args['limit'];
 		$mode  = (string) $args['mode'];
@@ -85,6 +83,8 @@ class Search {
 		];
 
 		if ( ! empty( $args['include_debug'] ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Trusted table name, no caching needed for a live count.
+			$total_vectors     = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
 			$response['debug'] = [
 				'total_vectors'  => $total_vectors,
 				'elapsed_ms'     => (int) round( ( microtime( true ) - $t_start ) * 1000 ),
@@ -216,6 +216,9 @@ class Search {
 		$timings['embed_ms'] = (int) round( ( microtime( true ) - $t_embed ) * 1000 );
 		if ( is_wp_error( $embedding ) ) {
 			return $embedding;
+		}
+		if ( ! self::is_valid_embedding( $embedding ) ) {
+			return new \WP_Error( 'bad_embedding', __( 'Embedding provider returned an invalid vector.', 'wpvdb-search' ), [ 'status' => 500 ] );
 		}
 
 		global $wpdb;
@@ -432,10 +435,15 @@ class Search {
 		if ( ! empty( $doc_ids ) ) {
 			$posts = get_posts(
 				[
-					'include'     => $doc_ids,
-					'post_type'   => in_array( 'any', $args['post_type'], true ) ? 'any' : $args['post_type'],
-					'post_status' => empty( $args['post_status'] ) ? [ 'publish' ] : $args['post_status'],
-					'numberposts' => count( $doc_ids ),
+					'include'                => $doc_ids,
+					'post_type'              => in_array( 'any', $args['post_type'], true ) ? 'any' : $args['post_type'],
+					'post_status'            => empty( $args['post_status'] ) ? [ 'publish' ] : $args['post_status'],
+					'numberposts'            => count( $doc_ids ),
+					'perm'                   => 'readable',
+					'no_found_rows'          => true,
+					'update_post_term_cache' => false,
+					'update_post_meta_cache' => false,
+					'orderby'                => 'post__in',
 				]
 			);
 			foreach ( $posts as $p ) {
@@ -472,6 +480,29 @@ class Search {
 			];
 		}
 		return $out;
+	}
+
+	/**
+	 * Validate a query embedding before composing vector SQL.
+	 *
+	 * @param mixed $embedding Embedding returned by wpvdb.
+	 * @return bool
+	 */
+	private static function is_valid_embedding( $embedding ) {
+		if ( ! is_array( $embedding ) || empty( $embedding ) ) {
+			return false;
+		}
+
+		foreach ( $embedding as $value ) {
+			if ( ! is_int( $value ) && ! is_float( $value ) ) {
+				return false;
+			}
+			if ( ! is_finite( (float) $value ) ) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**

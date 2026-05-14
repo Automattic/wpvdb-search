@@ -42,7 +42,7 @@ class Schema {
 		global $wpdb;
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted.
-		$row = $wpdb->get_var( $wpdb->prepare( "SHOW INDEX FROM {$table} WHERE Key_name = %s", self::INDEX_NAME ) );
+		$row = $wpdb->get_var( $wpdb->prepare( "SHOW INDEX FROM {$table} WHERE Column_name = %s AND Index_type = %s", 'chunk_content', 'FULLTEXT' ) );
 		return ! empty( $row );
 	}
 
@@ -50,15 +50,15 @@ class Schema {
 	 * Create the FULLTEXT index if it is missing. Runs once per option flag.
 	 */
 	public static function ensure_fulltext_index() {
-		if ( get_option( self::OPTION_INSTALLED ) === '1' && self::has_fulltext_index() ) {
+		if ( get_option( self::OPTION_INSTALLED ) === '1' ) {
 			return;
 		}
 
 		global $wpdb;
 		$table = self::table();
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted.
-		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) !== $table ) {
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Schema check at install time only.
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
 			return;
 		}
 
@@ -69,7 +69,7 @@ class Schema {
 
 		$index = self::INDEX_NAME;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table and index names are trusted internal values.
-		$wpdb->query( "ALTER TABLE {$table} ADD FULLTEXT INDEX {$index} (chunk_content)" );
+		$wpdb->query( "ALTER TABLE {$table} ADD FULLTEXT INDEX {$index} (chunk_content), ALGORITHM=INPLACE, LOCK=NONE" );
 
 		if ( empty( $wpdb->last_error ) ) {
 			update_option( self::OPTION_INSTALLED, '1', false );

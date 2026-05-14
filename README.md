@@ -34,6 +34,31 @@ $result = \WPVDB_Search\Search::run(
 
 `mode` accepts `dense`, `sparse`, or `hybrid`.
 
+## Abilities API
+
+When the WordPress Abilities API is available, this plugin registers `wpvdb/semantic-search`. The ability is read only, requires the current user to have `read` by default, and is marked `meta.mcp.public` so MCP Adapter can discover it.
+
+```php
+$ability = wp_get_ability( 'wpvdb/semantic-search' );
+$result  = $ability->execute(
+	[
+		'query' => 'markets reacting to economic uncertainty',
+		'limit' => 5,
+		'mode'  => 'dense',
+	]
+);
+```
+
+The Abilities REST route is:
+
+```text
+GET /wp-json/wp-abilities/v1/abilities/wpvdb%2Fsemantic-search/run?input[query]=markets&input[limit]=5&input[mode]=dense
+```
+
+The Abilities REST controller reads execution parameters from the `input` query parameter for read only abilities. `mode` accepts `dense`, `sparse`, or `hybrid`; the ability defaults to `dense` because hybrid runs both retrieval paths. `limit` is capped at 20. Results include post IDs, titles, canonical URLs, bounded chunk excerpts, score metadata, and source modes.
+
+Sites that need a stricter audience can filter `wpvdb_search_ability_capability`, for example to require `edit_posts`.
+
 ## Development
 
 Install dependencies with Composer, then use the scripts declared in `composer.json` for lint and fix tasks.

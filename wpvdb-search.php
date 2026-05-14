@@ -3,7 +3,7 @@
  * Plugin Name:      WPVDB Search
  * Plugin URI:       https://github.com/rbcorrales/wpvdb-search
  * Description:      Shared dense, sparse, and hybrid search primitives for wpvdb.
- * Version:          0.1.0
+ * Version:          0.2.0
  * Author:           Automattic, Ramon Corrales
  * Author URI:       https://automattic.com/
  * Requires PHP:     7.4
@@ -20,12 +20,13 @@ namespace WPVDB_Search;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPVDB_SEARCH_VERSION', '0.1.0' );
+define( 'WPVDB_SEARCH_VERSION', '0.2.0' );
 define( 'WPVDB_SEARCH_FILE', __FILE__ );
 define( 'WPVDB_SEARCH_DIR', __DIR__ );
 
 require_once __DIR__ . '/includes/class-schema.php';
 require_once __DIR__ . '/includes/class-search.php';
+require_once __DIR__ . '/includes/class-abilities.php';
 
 /**
  * Show an admin notice when wpvdb is missing.
@@ -56,5 +57,6 @@ add_action(
 		}
 
 		Schema::init();
+		Abilities::init();
 	}
 );
