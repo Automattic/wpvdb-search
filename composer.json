@@ -24,18 +24,33 @@
 		"phpstan/extension-installer": "^1.4",
 		"phpstan/phpstan": "^2.1",
 		"szepeviktor/phpstan-wordpress": "^2.0",
-		"wp-coding-standards/wpcs": "^3.0"
+		"wp-coding-standards/wpcs": "^3.0",
+		"brainmaestro/composer-git-hooks": "^3.0"
 	},
 	"scripts": {
 		"lint": "./vendor/bin/phpcs",
 		"analyze": "./vendor/bin/phpstan analyze --memory-limit=512M",
-		"fix": "./vendor/bin/phpcbf"
+		"fix": "./vendor/bin/phpcbf",
+		"post-install-cmd": [
+			"vendor/bin/cghooks add --no-lock"
+		],
+		"post-update-cmd": [
+			"vendor/bin/cghooks update"
+		]
+	},
+	"extra": {
+		"hooks": {
+			"pre-commit": "./.hooks/pre-commit"
+		}
 	},
 	"support": {
 		"issues": "https://github.com/rbcorrales/wpvdb-search/issues",
 		"source": "https://github.com/rbcorrales/wpvdb-search"
 	},
 	"config": {
+		"platform": {
+			"php": "8.3.0"
+		},
 		"allow-plugins": {
 			"dealerdirect/phpcodesniffer-composer-installer": true,
 			"phpstan/extension-installer": true

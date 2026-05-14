@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+if printf '%s\n' "$staged_files" | grep -E '\.php$' >/dev/null 2>&1; then
+	echo "Running PHP lint on staged files..."
+	./vendor/bin/phpcs --filter=GitStaged
+else
+	echo "No staged PHP files to lint."
+fi
+
+echo "Running static analysis..."
+composer analyze
