@@ -1,8 +1,8 @@
 # WPVDB Search
 
 [![Checks](https://github.com/rbcorrales/wpvdb-search/actions/workflows/ci.yml/badge.svg)](https://github.com/rbcorrales/wpvdb-search/actions/workflows/ci.yml)
-![WordPress](https://img.shields.io/badge/WordPress-6.9%2B-3858e9?logo=wordpress&logoColor=white)
-![PHP](https://img.shields.io/badge/PHP-8.3%2B-777bb4?logo=php&logoColor=white)
+[![WordPress](https://img.shields.io/badge/WordPress-6.9%2B-3858e9?logo=wordpress&logoColor=white)](#requirements)
+[![PHP](https://img.shields.io/badge/PHP-8.3%2B-777bb4?logo=php&logoColor=white)](#requirements)
 [![License](https://img.shields.io/badge/License-GPLv2%2B-blue.svg)](LICENSE)
 
 Shared dense, sparse, and hybrid search primitives for content indexed by [`wpvdb`](https://github.com/rbcorrales/wpvdb).
@@ -11,8 +11,12 @@ This plugin is the canonical PHP search service used by [`wpvdb-smart-search`](h
 
 ## Requirements
 
-- [`wpvdb`](https://github.com/rbcorrales/wpvdb) installed and configured.
-- MariaDB with native `VECTOR` support for dense and hybrid search, plus `FULLTEXT` support for sparse and hybrid search.
+| Requirement | Version or notes |
+|---|---|
+| WordPress | 6.9 or newer |
+| PHP | 8.3 or newer |
+| [`wpvdb`](https://github.com/rbcorrales/wpvdb) | Installed and configured |
+| MariaDB | Native `VECTOR` support for dense and hybrid search, plus `FULLTEXT` support for sparse and hybrid search |
 
 ## What this plugin owns
 
