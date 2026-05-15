@@ -3,7 +3,7 @@
  * Plugin Name:       WPVDB Search
  * Plugin URI:        https://github.com/rbcorrales/wpvdb-search
  * Description:       Shared dense, sparse, and hybrid search primitives for wpvdb.
- * Version:           0.5.1
+ * Version:           0.6.0
  * Author:            Automattic, Ramon Corrales
  * Author URI:        https://automattic.com/
  * Requires at least: 6.9
@@ -23,7 +23,7 @@ namespace WPVDB_Search;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPVDB_SEARCH_VERSION', '0.5.1' );
+define( 'WPVDB_SEARCH_VERSION', '0.6.0' );
 define( 'WPVDB_SEARCH_FILE', __FILE__ );
 define( 'WPVDB_SEARCH_DIR', __DIR__ );
 
