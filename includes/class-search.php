@@ -15,11 +15,12 @@ defined( 'ABSPATH' ) || exit;
  * Search runner.
  */
 class Search {
-	public const array MODES               = [ 'hybrid', 'dense', 'sparse' ];
-	public const int RRF_K                 = 60;
-	public const int MAX_LIMIT             = 20;
-	public const int MAX_QUERY             = 500;
-	public const int RELATED_SOURCE_CHUNKS = 3;
+	public const array MODES                 = [ 'hybrid', 'dense', 'sparse' ];
+	public const int RRF_K                   = 60;
+	public const int MAX_LIMIT               = 20;
+	public const int MAX_QUERY               = 500;
+	public const int RELATED_SOURCE_CHUNKS   = 3;
+	private const int RELATED_FALLBACK_BATCH = 500;
 
 	/**
 	 * Run a search.
@@ -134,9 +135,6 @@ class Search {
 			return $args;
 		}
 
-		global $wpdb;
-		$table = Schema::table();
-
 		$source_ids = self::source_embedding_ids( $args );
 		if ( is_wp_error( $source_ids ) ) {
 			return $source_ids;
@@ -151,47 +149,11 @@ class Search {
 		}
 
 		$pool       = max( $args['limit'] * 6, 60 );
-		$candidates = [];
-
-		foreach ( $source_ids as $source_id ) {
-			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted; user input is bound via prepare().
-			$sql = $wpdb->prepare(
-				"SELECT e.id, e.doc_id, e.chunk_id, e.chunk_content, e.summary,
-				        VEC_DISTANCE_COSINE(e.embedding, s.embedding) as distance
-				 FROM {$table} e
-				 INNER JOIN {$table} s ON s.id = %d
-				 WHERE e.doc_id <> %d
-				 AND e.doc_type = %s
-				 AND e.model = %s
-				 ORDER BY distance
-				 LIMIT %d",
-				(int) $source_id,
-				$args['post_id'],
-				$args['doc_type'],
-				$args['model'],
-				$pool
-			);
-			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $sql is prepared above; vector ordering must stay in SQL.
-			$rows = $wpdb->get_results( $sql, ARRAY_A );
-			if ( $wpdb->last_error ) {
-				return new \WP_Error( 'db_error', $wpdb->last_error, [ 'status' => 500 ] );
-			}
-
-			foreach ( (array) $rows as $row ) {
-				$id       = isset( $row['id'] ) ? (int) $row['id'] : 0;
-				$distance = isset( $row['distance'] ) ? (float) $row['distance'] : null;
-				if ( ! $id || null === $distance ) {
-					continue;
-				}
-				if ( ! isset( $candidates[ $id ] ) || $distance < (float) $candidates[ $id ]['distance'] ) {
-					$candidates[ $id ] = $row;
-				}
-			}
+		$candidates = self::related_candidates( $args, $source_ids, $pool );
+		if ( is_wp_error( $candidates ) ) {
+			return $candidates;
 		}
 
-		$candidates = array_values( $candidates );
 		usort(
 			$candidates,
 			static fn ( array $a, array $b ): int => (float) $a['distance'] <=> (float) $b['distance']
@@ -314,7 +276,22 @@ class Search {
 			$doc_type = 'post';
 		}
 
-		$model = self::resolve_model( isset( $args['model'] ) ? (string) $args['model'] : '' );
+		/**
+		 * Filters the embedding model used for related-post lookup.
+		 *
+		 * @since 0.6.0
+		 *
+		 * @param string               $model   Requested model, or empty string for the wpvdb default.
+		 * @param int                  $post_id Source post ID.
+		 * @param array<string, mixed> $args    Raw related-post args.
+		 */
+		$model_arg = apply_filters(
+			'wpvdb_search_related_model',
+			isset( $args['model'] ) ? (string) $args['model'] : '',
+			$post_id,
+			$args
+		);
+		$model     = self::resolve_model( (string) $model_arg );
 		if ( is_wp_error( $model ) ) {
 			return $model;
 		}
@@ -372,12 +349,310 @@ class Search {
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $sql is prepared above.
-		$ids = $wpdb->get_col( $sql );
+		$ids      = $wpdb->get_col( $sql );
+		$db_error = self::last_db_error();
+		if ( '' !== $db_error ) {
+			return new \WP_Error( 'db_error', $db_error, [ 'status' => 500 ] );
+		}
+
+		return array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
+	}
+
+	/**
+	 * Fetch related candidates using native vector SQL or PHP fallback.
+	 *
+	 * @param array<string, mixed> $args       Normalized related args.
+	 * @param array<int>           $source_ids Source embedding row IDs.
+	 * @param int                  $pool       Candidate pool size.
+	 * @return list<array<string, mixed>>|\WP_Error
+	 */
+	private static function related_candidates( array $args, array $source_ids, int $pool ): array|\WP_Error {
+		return self::should_use_php_vector_fallback()
+			? self::related_candidates_php( $args, $pool )
+			: self::related_candidates_native( $args, $source_ids, $pool );
+	}
+
+	/**
+	 * Fetch related candidates using native vector SQL.
+	 *
+	 * @param array<string, mixed> $args       Normalized related args.
+	 * @param array<int>           $source_ids Source embedding row IDs.
+	 * @param int                  $pool       Candidate pool size.
+	 * @return list<array<string, mixed>>|\WP_Error
+	 */
+	private static function related_candidates_native( array $args, array $source_ids, int $pool ): array|\WP_Error {
+		global $wpdb;
+		$table      = Schema::table();
+		$candidates = [];
+
+		foreach ( $source_ids as $source_id ) {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted; user input is bound via prepare().
+			$sql = $wpdb->prepare(
+				"SELECT e.id, e.doc_id, e.chunk_id, e.chunk_content, e.summary,
+				        VEC_DISTANCE_COSINE(e.embedding, s.embedding) as distance
+				 FROM {$table} e
+				 INNER JOIN {$table} s ON s.id = %d
+				 WHERE e.doc_id <> %d
+				 AND e.doc_type = %s
+				 AND e.model = %s
+				 ORDER BY distance
+				 LIMIT %d",
+				(int) $source_id,
+				$args['post_id'],
+				$args['doc_type'],
+				$args['model'],
+				$pool
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $sql is prepared above; vector ordering must stay in SQL.
+			$rows = $wpdb->get_results( $sql, ARRAY_A );
+			if ( $wpdb->last_error ) {
+				return new \WP_Error( 'db_error', $wpdb->last_error, [ 'status' => 500 ] );
+			}
+
+			foreach ( (array) $rows as $row ) {
+				$id       = isset( $row['id'] ) ? (int) $row['id'] : 0;
+				$distance = isset( $row['distance'] ) ? (float) $row['distance'] : null;
+				if ( ! $id || null === $distance ) {
+					continue;
+				}
+				if ( ! isset( $candidates[ $id ] ) || $distance < (float) $candidates[ $id ]['distance'] ) {
+					$candidates[ $id ] = $row;
+				}
+			}
+		}
+
+		return array_values( $candidates );
+	}
+
+	/**
+	 * Fetch related candidates using PHP cosine distance.
+	 *
+	 * @param array<string, mixed> $args Normalized related args.
+	 * @param int                  $pool Candidate pool size.
+	 * @return list<array<string, mixed>>|\WP_Error
+	 */
+	private static function related_candidates_php( array $args, int $pool ): array|\WP_Error {
+		global $wpdb;
+		$table = Schema::table();
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted; user input is bound via prepare().
+		$source_sql = $wpdb->prepare(
+			"SELECT id, embedding
+			 FROM {$table}
+			 WHERE doc_id = %d
+			 AND doc_type = %s
+			 AND model = %s
+			 ORDER BY chunk_index ASC
+			 LIMIT %d",
+			$args['post_id'],
+			$args['doc_type'],
+			$args['model'],
+			$args['source_chunks']
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $source_sql is prepared above.
+		$source_rows = $wpdb->get_results( $source_sql, ARRAY_A );
 		if ( $wpdb->last_error ) {
 			return new \WP_Error( 'db_error', $wpdb->last_error, [ 'status' => 500 ] );
 		}
 
-		return array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
+		$source_vectors = [];
+		foreach ( (array) $source_rows as $row ) {
+			$vector = self::decode_embedding( $row['embedding'] ?? null );
+			if ( null !== $vector ) {
+				$source_vectors[] = $vector;
+			}
+		}
+
+		if ( empty( $source_vectors ) ) {
+			return new \WP_Error( 'bad_source_embedding', __( 'Source post embeddings are not valid.', 'wpvdb-search' ), [ 'status' => 500 ] );
+		}
+
+		$candidates = [];
+		$last_id    = 0;
+		do {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted; user input is bound via prepare().
+			$candidate_sql = $wpdb->prepare(
+				"SELECT id, doc_id, chunk_id, chunk_content, summary, embedding
+				 FROM {$table}
+				 WHERE id > %d
+				 AND doc_id <> %d
+				 AND doc_type = %s
+				 AND model = %s
+				 ORDER BY id ASC
+				 LIMIT %d",
+				$last_id,
+				$args['post_id'],
+				$args['doc_type'],
+				$args['model'],
+				self::RELATED_FALLBACK_BATCH
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $candidate_sql is prepared above; fallback scans candidates in bounded batches.
+			$candidate_rows = $wpdb->get_results( $candidate_sql, ARRAY_A );
+			$db_error       = self::last_db_error();
+			if ( '' !== $db_error ) {
+				return new \WP_Error( 'db_error', $db_error, [ 'status' => 500 ] );
+			}
+
+			$row_count = count( (array) $candidate_rows );
+			foreach ( (array) $candidate_rows as $row ) {
+				$id = isset( $row['id'] ) ? (int) $row['id'] : 0;
+				if ( $id > $last_id ) {
+					$last_id = $id;
+				}
+
+				$candidate_vector = self::decode_embedding( $row['embedding'] ?? null );
+				if ( ! $id || null === $candidate_vector ) {
+					continue;
+				}
+
+				$best_distance = null;
+				foreach ( $source_vectors as $source_vector ) {
+					$distance = self::cosine_distance( $source_vector, $candidate_vector );
+					if ( null === $distance ) {
+						continue;
+					}
+					if ( null === $best_distance || $distance < $best_distance ) {
+						$best_distance = $distance;
+					}
+				}
+
+				if ( null === $best_distance ) {
+					continue;
+				}
+
+				unset( $row['embedding'] );
+				$row['distance'] = $best_distance;
+				$candidates[]    = $row;
+			}
+
+			if ( count( $candidates ) > $pool * 2 ) {
+				$candidates = self::slice_related_candidates( $candidates, $pool );
+			}
+		} while ( self::RELATED_FALLBACK_BATCH === $row_count );
+
+		return self::slice_related_candidates( $candidates, $pool );
+	}
+
+	/**
+	 * Whether vector comparisons should run in PHP.
+	 *
+	 * @return bool
+	 */
+	private static function should_use_php_vector_fallback(): bool {
+		if ( function_exists( 'wpvdb_is_sqlite' ) && wpvdb_is_sqlite() ) {
+			return true;
+		}
+
+		return ( defined( 'DB_ENGINE' ) && 'sqlite' === DB_ENGINE )
+			|| ( defined( 'DATABASE_TYPE' ) && 'sqlite' === DATABASE_TYPE );
+	}
+
+	/**
+	 * Sort and trim related candidate rows by distance.
+	 *
+	 * @param list<array<string, mixed>> $candidates Candidate rows.
+	 * @param int                        $pool       Max candidate rows to keep.
+	 * @return list<array<string, mixed>>
+	 */
+	private static function slice_related_candidates( array $candidates, int $pool ): array {
+		usort(
+			$candidates,
+			static fn ( array $a, array $b ): int => (float) $a['distance'] <=> (float) $b['distance']
+		);
+
+		return array_slice( $candidates, 0, $pool );
+	}
+
+	/**
+	 * Return the last database error.
+	 *
+	 * The wpdb object mutates last_error from query methods, which static analysis cannot
+	 * infer between adjacent calls.
+	 *
+	 * @return string
+	 */
+	private static function last_db_error(): string {
+		global $wpdb;
+
+		return (string) $wpdb->last_error;
+	}
+
+	/**
+	 * Decode a JSON stored embedding and validate it before comparison.
+	 *
+	 * @param mixed $embedding Raw stored embedding.
+	 * @return list<float>|null
+	 */
+	private static function decode_embedding( mixed $embedding ): ?array {
+		if ( ! is_string( $embedding ) || '' === $embedding ) {
+			return null;
+		}
+
+		$decoded = json_decode( $embedding, true );
+		if ( ! is_array( $decoded ) ) {
+			return null;
+		}
+
+		$out          = [];
+		$expected_key = 0;
+		foreach ( $decoded as $key => $value ) {
+			if ( $key !== $expected_key || ( ! is_int( $value ) && ! is_float( $value ) ) ) {
+				return null;
+			}
+			if ( ! is_finite( (float) $value ) ) {
+				return null;
+			}
+
+			$out[] = (float) $value;
+			$expected_key++;
+		}
+
+		return self::is_valid_embedding( $out ) ? $out : null;
+	}
+
+	/**
+	 * Calculate strict cosine distance for two validated embeddings.
+	 *
+	 * @param array<float> $source    Source vector.
+	 * @param array<float> $candidate Candidate vector.
+	 * @return float|null
+	 */
+	private static function cosine_distance( array $source, array $candidate ): ?float {
+		if ( count( $source ) !== count( $candidate ) || ! self::is_valid_embedding( $source ) || ! self::is_valid_embedding( $candidate ) ) {
+			return null;
+		}
+
+		$dot       = 0.0;
+		$source_sq = 0.0;
+		$target_sq = 0.0;
+		$length    = count( $source );
+
+		for ( $i = 0; $i < $length; $i++ ) {
+			$source_value = $source[ $i ];
+			$target_value = $candidate[ $i ];
+			$dot         += $source_value * $target_value;
+			$source_sq   += $source_value * $source_value;
+			$target_sq   += $target_value * $target_value;
+		}
+
+		if ( $source_sq <= 1.0e-30 || $target_sq <= 1.0e-30 ) {
+			return null;
+		}
+
+		$similarity = $dot / ( sqrt( $source_sq ) * sqrt( $target_sq ) );
+		if ( ! is_finite( $similarity ) ) {
+			return null;
+		}
+
+		$distance = 1.0 - max( -1.0, min( 1.0, $similarity ) );
+
+		return is_finite( $distance ) ? $distance : null;
 	}
 
 	/**
@@ -762,16 +1037,25 @@ class Search {
 			return false;
 		}
 
-		foreach ( $embedding as $value ) {
+		$expected_key = 0;
+		$sum_sq       = 0.0;
+		foreach ( $embedding as $key => $value ) {
+			if ( $key !== $expected_key ) {
+				return false;
+			}
 			if ( ! is_int( $value ) && ! is_float( $value ) ) {
 				return false;
 			}
 			if ( ! is_finite( (float) $value ) ) {
 				return false;
 			}
+
+			$float_value = (float) $value;
+			$sum_sq     += $float_value * $float_value;
+			$expected_key++;
 		}
 
-		return true;
+		return $sum_sq > 1.0e-30;
 	}
 
 	/**
