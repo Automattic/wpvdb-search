@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  maintain:
+  run:
     uses: rbcorrales/wpvdb-scripts/.github/workflows/plugin-maintain-main.yml@main
     with:
       timeout-minutes: 15
