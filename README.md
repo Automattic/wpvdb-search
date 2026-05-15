@@ -51,6 +51,7 @@ Accepted parameters:
 | `mode` | `string` | `dense`, `sparse`, `hybrid` | `hybrid` | Retrieval mode. |
 | `post_type` | `string[]` | Any registered post type, or `any` | `any` | Post types to search. |
 | `post_status` | `string[]` | Any readable post status | `publish` | Post statuses to search. |
+| `model` | `string` | Any configured wpvdb embedding model | Active wpvdb model | Embedding model to query. |
 | `fields` | `string[]` | Any result field key | All fields | Optional result field projection. |
 | `include_debug` | `bool` | `true`, `false` | `false` | Adds timing and query metadata. |
 | `collapse_by_post` | `bool` | `true`, `false` | `false` | Returns at most one result per post. |

@@ -43,7 +43,12 @@ class Search {
 
 		$limit = (int) $args['limit'];
 		$mode  = (string) $args['mode'];
-		$query = (string) $args['query'];
+		$model = self::resolve_model( (string) $args['model'] );
+		if ( is_wp_error( $model ) ) {
+			return $model;
+		}
+		$args['model'] = $model;
+		$query         = (string) $args['query'];
 
 		$collapse_by_post = ! empty( $args['collapse_by_post'] );
 		$pool             = $collapse_by_post ? max( $limit * 6, 60 ) : max( $limit * 3, 30 );
@@ -90,9 +95,16 @@ class Search {
 
 		if ( ! empty( $args['include_debug'] ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Trusted table name, no caching needed for a live count.
-			$total_vectors     = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+			$total_vectors = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted; user input is bound via prepare().
+			$model_vectors_sql = $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE model = %s", $model );
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $model_vectors_sql is prepared above.
+			$model_vectors     = (int) $wpdb->get_var( $model_vectors_sql );
 			$response['debug'] = [
+				'model'          => $model,
 				'total_vectors'  => $total_vectors,
+				'model_vectors'  => $model_vectors,
 				'elapsed_ms'     => (int) round( ( microtime( true ) - $t_start ) * 1000 ),
 				'dense_ms'       => $dense_ms,
 				'dense_embed_ms' => $dense_embed_ms,
@@ -238,6 +250,7 @@ class Search {
 		$post_type   = isset( $args['post_type'] ) ? (array) $args['post_type'] : [ 'any' ];
 		$post_status = isset( $args['post_status'] ) ? (array) $args['post_status'] : [ 'publish' ];
 		$fields      = isset( $args['fields'] ) ? (array) $args['fields'] : [];
+		$model       = isset( $args['model'] ) ? (string) $args['model'] : '';
 
 		$post_type = array_values( array_filter( array_map( 'sanitize_key', $post_type ) ) );
 		if ( empty( $post_type ) ) {
@@ -251,9 +264,29 @@ class Search {
 			'post_type'        => $post_type,
 			'post_status'      => array_values( array_filter( array_map( 'sanitize_key', $post_status ) ) ),
 			'fields'           => array_values( array_filter( array_map( 'sanitize_key', $fields ) ) ),
+			'model'            => $model,
 			'include_debug'    => ! empty( $args['include_debug'] ),
 			'collapse_by_post' => ! empty( $args['collapse_by_post'] ),
 		];
+	}
+
+	/**
+	 * Resolve the embedding model for a search request.
+	 *
+	 * @param string $model Requested model, or an empty string for the wpvdb default.
+	 * @return string|\WP_Error
+	 */
+	private static function resolve_model( string $model ): string|\WP_Error {
+		$model = trim( sanitize_text_field( $model ) );
+
+		if ( '' === $model ) {
+			$model = \WPVDB\Settings::get_default_model();
+		}
+		if ( '' === $model ) {
+			return new \WP_Error( 'model_missing', __( 'Embedding model is not configured.', 'wpvdb-search' ), [ 'status' => 500 ] );
+		}
+
+		return $model;
 	}
 
 	/**
@@ -281,12 +314,9 @@ class Search {
 			$doc_type = 'post';
 		}
 
-		$model = isset( $args['model'] ) ? sanitize_text_field( (string) $args['model'] ) : '';
-		if ( '' === $model ) {
-			$model = \WPVDB\Settings::get_default_model();
-		}
-		if ( '' === $model ) {
-			return new \WP_Error( 'model_missing', __( 'Embedding model is not configured.', 'wpvdb-search' ), [ 'status' => 500 ] );
+		$model = self::resolve_model( isset( $args['model'] ) ? (string) $args['model'] : '' );
+		if ( is_wp_error( $model ) ) {
+			return $model;
 		}
 
 		$post_type   = isset( $args['post_type'] ) ? (array) $args['post_type'] : [ $doc_type ];
@@ -369,7 +399,7 @@ class Search {
 		if ( empty( $provider ) ) {
 			$provider = 'openai';
 		}
-		$model    = \WPVDB\Settings::get_default_model();
+		$model    = (string) $args['model'];
 		$api_key  = \WPVDB\Settings::get_api_key_for_provider( $provider );
 		$api_base = \WPVDB\Settings::get_api_base_for_provider( $provider );
 
@@ -397,14 +427,33 @@ class Search {
 		$df    = "VEC_DISTANCE_COSINE(embedding, $vf)";
 		$where = self::doc_type_where_sql( $args['post_type'] );
 
-		$sql = "SELECT id, doc_id, chunk_id, chunk_content, summary, $df as distance
-		        FROM {$table}
-		        {$where}
-		        ORDER BY distance
-		        LIMIT " . (int) $limit;
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name and vector expression are trusted; user input is bound via prepare().
+		if ( '' === $where ) {
+			$sql = $wpdb->prepare(
+				"SELECT id, doc_id, chunk_id, chunk_content, summary, {$df} as distance
+				FROM {$table}
+				WHERE model = %s
+				ORDER BY distance
+				LIMIT %d",
+				$model,
+				(int) $limit
+			);
+		} else {
+			$sql = $wpdb->prepare(
+				"SELECT id, doc_id, chunk_id, chunk_content, summary, {$df} as distance
+				FROM {$table}
+				{$where}
+				AND model = %s
+				ORDER BY distance
+				LIMIT %d",
+				$model,
+				(int) $limit
+			);
+		}
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$t_db = microtime( true );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Query is assembled from trusted constants and esc_sql'd JSON; vector calls cannot be passed through prepare().
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $sql is prepared above; vector ordering must stay in SQL.
 		$rows             = $wpdb->get_results( $sql, ARRAY_A );
 		$timings['db_ms'] = (int) round( ( microtime( true ) - $t_db ) * 1000 );
 		if ( $wpdb->last_error ) {
@@ -433,14 +482,16 @@ class Search {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted; user input is bound via prepare().
 		$sql = $wpdb->prepare(
 			"SELECT id, doc_id, chunk_id, chunk_content, summary,
-			        MATCH(chunk_content) AGAINST (%s IN NATURAL LANGUAGE MODE) as score
-			 FROM {$table}
-			 WHERE MATCH(chunk_content) AGAINST (%s IN NATURAL LANGUAGE MODE)
-			 {$doc_type_where}
-			 ORDER BY score DESC
-			 LIMIT %d",
+				MATCH(chunk_content) AGAINST (%s IN NATURAL LANGUAGE MODE) as score
+			FROM {$table}
+			WHERE MATCH(chunk_content) AGAINST (%s IN NATURAL LANGUAGE MODE)
+			AND model = %s
+			{$doc_type_where}
+			ORDER BY score DESC
+			LIMIT %d",
 			$query,
 			$query,
+			$args['model'],
 			(int) $limit
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
