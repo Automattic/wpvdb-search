@@ -95,9 +95,16 @@ class Search {
 
 		if ( ! empty( $args['include_debug'] ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Trusted table name, no caching needed for a live count.
-			$total_vectors     = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+			$total_vectors = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted; user input is bound via prepare().
+			$model_vectors_sql = $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE model = %s", $model );
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $model_vectors_sql is prepared above.
+			$model_vectors     = (int) $wpdb->get_var( $model_vectors_sql );
 			$response['debug'] = [
+				'model'          => $model,
 				'total_vectors'  => $total_vectors,
+				'model_vectors'  => $model_vectors,
 				'elapsed_ms'     => (int) round( ( microtime( true ) - $t_start ) * 1000 ),
 				'dense_ms'       => $dense_ms,
 				'dense_embed_ms' => $dense_embed_ms,
@@ -243,7 +250,7 @@ class Search {
 		$post_type   = isset( $args['post_type'] ) ? (array) $args['post_type'] : [ 'any' ];
 		$post_status = isset( $args['post_status'] ) ? (array) $args['post_status'] : [ 'publish' ];
 		$fields      = isset( $args['fields'] ) ? (array) $args['fields'] : [];
-		$model       = isset( $args['model'] ) ? sanitize_text_field( (string) $args['model'] ) : '';
+		$model       = isset( $args['model'] ) ? (string) $args['model'] : '';
 
 		$post_type = array_values( array_filter( array_map( 'sanitize_key', $post_type ) ) );
 		if ( empty( $post_type ) ) {
@@ -270,6 +277,8 @@ class Search {
 	 * @return string|\WP_Error
 	 */
 	private static function resolve_model( string $model ): string|\WP_Error {
+		$model = trim( sanitize_text_field( $model ) );
+
 		if ( '' === $model ) {
 			$model = \WPVDB\Settings::get_default_model();
 		}
@@ -305,7 +314,7 @@ class Search {
 			$doc_type = 'post';
 		}
 
-		$model = self::resolve_model( isset( $args['model'] ) ? sanitize_text_field( (string) $args['model'] ) : '' );
+		$model = self::resolve_model( isset( $args['model'] ) ? (string) $args['model'] : '' );
 		if ( is_wp_error( $model ) ) {
 			return $model;
 		}
@@ -421,22 +430,22 @@ class Search {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name and vector expression are trusted; user input is bound via prepare().
 		if ( '' === $where ) {
 			$sql = $wpdb->prepare(
-				"SELECT id, doc_id, chunk_id, chunk_content, summary, $df as distance
-			        FROM {$table}
-			        WHERE model = %s
-			        ORDER BY distance
-			        LIMIT %d",
+				"SELECT id, doc_id, chunk_id, chunk_content, summary, {$df} as distance
+				FROM {$table}
+				WHERE model = %s
+				ORDER BY distance
+				LIMIT %d",
 				$model,
 				(int) $limit
 			);
 		} else {
 			$sql = $wpdb->prepare(
-				"SELECT id, doc_id, chunk_id, chunk_content, summary, $df as distance
-			        FROM {$table}
-			        {$where}
-			        AND model = %s
-			        ORDER BY distance
-			        LIMIT %d",
+				"SELECT id, doc_id, chunk_id, chunk_content, summary, {$df} as distance
+				FROM {$table}
+				{$where}
+				AND model = %s
+				ORDER BY distance
+				LIMIT %d",
 				$model,
 				(int) $limit
 			);
@@ -473,13 +482,13 @@ class Search {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted; user input is bound via prepare().
 		$sql = $wpdb->prepare(
 			"SELECT id, doc_id, chunk_id, chunk_content, summary,
-			        MATCH(chunk_content) AGAINST (%s IN NATURAL LANGUAGE MODE) as score
-				 FROM {$table}
-				 WHERE MATCH(chunk_content) AGAINST (%s IN NATURAL LANGUAGE MODE)
-				 AND model = %s
-				 {$doc_type_where}
-				 ORDER BY score DESC
-				 LIMIT %d",
+				MATCH(chunk_content) AGAINST (%s IN NATURAL LANGUAGE MODE) as score
+			FROM {$table}
+			WHERE MATCH(chunk_content) AGAINST (%s IN NATURAL LANGUAGE MODE)
+			AND model = %s
+			{$doc_type_where}
+			ORDER BY score DESC
+			LIMIT %d",
 			$query,
 			$query,
 			$args['model'],

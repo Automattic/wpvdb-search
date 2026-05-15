@@ -51,7 +51,7 @@ Accepted parameters:
 | `mode` | `string` | `dense`, `sparse`, `hybrid` | `hybrid` | Retrieval mode. |
 | `post_type` | `string[]` | Any registered post type, or `any` | `any` | Post types to search. |
 | `post_status` | `string[]` | Any readable post status | `publish` | Post statuses to search. |
-| `model` | `string` | Any configured wpvdb embedding model | Default wpvdb model | Embedding model to query. |
+| `model` | `string` | Any configured wpvdb embedding model | Active wpvdb model | Embedding model to query. |
 | `fields` | `string[]` | Any result field key | All fields | Optional result field projection. |
 | `include_debug` | `bool` | `true`, `false` | `false` | Adds timing and query metadata. |
 | `collapse_by_post` | `bool` | `true`, `false` | `false` | Returns at most one result per post. |
@@ -79,7 +79,7 @@ Accepted arguments:
 | `$post_id` | `int` | Existing post ID | Required | Source post used to find related content. |
 | `$limit` | `int` | `1` to `20` | `5` | Maximum number of related results to return. |
 | `$args['doc_type']` | `string` | Any wpvdb document type | Source post type | Document type for source vectors. |
-| `$args['model']` | `string` | Any configured wpvdb embedding model | Default wpvdb model | Embedding model to compare. |
+| `$args['model']` | `string` | Any configured wpvdb embedding model | Active wpvdb model | Embedding model to compare. |
 | `$args['post_type']` | `string[]` | Any registered post type | Source document type | Post types to return. |
 | `$args['post_status']` | `string[]` | Any readable post status | `publish` | Post statuses to return. |
 | `$args['fields']` | `string[]` | Any result field key | All fields | Optional result field projection. |
