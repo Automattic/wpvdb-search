@@ -123,7 +123,30 @@ MCP clients should discover available abilities, then execute `wpvdb/semantic-se
 
 ## Development
 
-Install development dependencies with Composer, then use the scripts declared in `composer.json` for lint, analysis, i18n preview, and fix tasks.
+Install dependencies:
+
+```bash
+composer install
+```
+
+Run the local checks:
+
+```bash
+composer lint
+composer analyze
+```
+
+Run the translation task locally only when you want to preview language file changes:
+
+```bash
+composer i18n
+```
+
+Apply coding standard fixes:
+
+```bash
+composer fix
+```
 
 ## License
 
