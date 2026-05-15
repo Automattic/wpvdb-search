@@ -31,6 +31,11 @@
 		"lint": "./vendor/bin/phpcs",
 		"analyze": "./vendor/bin/phpstan analyze --memory-limit=512M",
 		"fix": "./vendor/bin/phpcbf",
+		"pot": "wp i18n make-pot . languages/wpvdb-search.pot --domain=wpvdb-search --exclude=vendor,release,stubs --headers='{\"POT-Creation-Date\":\"\"}'",
+		"i18n": [
+			"composer pot",
+			"for po in languages/wpvdb-search-*.po; do [ -e \"$po\" ] || continue; msgmerge --update --backup=none \"$po\" languages/wpvdb-search.pot; perl -0pi -e 's/POT-Creation-Date: [^\\\\]*\\\\n/POT-Creation-Date: \\\\n/g' \"$po\"; msgfmt --check \"$po\" -o \"${po%.po}.mo\"; done"
+		],
 		"post-install-cmd": [
 			"vendor/bin/cghooks add --no-lock"
 		],

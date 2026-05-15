@@ -16,5 +16,6 @@ jobs:
     uses: rbcorrales/wpvdb-scripts/.github/workflows/plugin-ci.yml@main
     with:
       timeout-minutes: 10
+      composer-install: true
       php-lint-command: composer lint
       php-analyze-command: composer analyze

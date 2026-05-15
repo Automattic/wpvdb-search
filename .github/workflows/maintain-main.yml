@@ -1,0 +1,25 @@
+name: Maintain main
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  maintain:
+    uses: rbcorrales/wpvdb-scripts/.github/workflows/plugin-maintain-main.yml@main
+    with:
+      timeout-minutes: 15
+      composer-install: false
+      version-bump: true
+      plugin-file: wpvdb-search.php
+      version-constant: WPVDB_SEARCH_VERSION
+      pot-file: languages/wpvdb-search.pot
+      pot-project: WPVDB Search
+      i18n-command: composer i18n
+      commit-paths: |
+        wpvdb-search.php
+        languages/
