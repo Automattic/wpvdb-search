@@ -25,4 +25,5 @@ jobs:
       composer-install: true
       php-lint-command: composer lint
       php-analyze-command: composer analyze
+      test-command: composer test
       i18n-command: composer i18n

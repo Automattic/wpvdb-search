@@ -13,6 +13,12 @@
 		<exclude name="Universal.Arrays.DisallowShortArraySyntax.Found" />
 		<exclude name="Universal.Operators.DisallowStandalonePostIncrementDecrement.PostIncrementFound" />
 	</rule>
+	<rule ref="WordPress.Files.FileName.NotHyphenatedLowercase">
+		<exclude-pattern>*/tests/Unit/*Test.php</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.Files.FileName.InvalidClassFileName">
+		<exclude-pattern>*/tests/Unit/*Test.php</exclude-pattern>
+	</rule>
 	<rule ref="Generic.Arrays.DisallowLongArraySyntax" />
 
 	<rule ref="PHPCompatibilityWP"/>
@@ -28,4 +34,5 @@
 	<exclude-pattern>*/vendor/*</exclude-pattern>
 	<exclude-pattern>*/release/*</exclude-pattern>
 	<exclude-pattern>*/stubs/*</exclude-pattern>
+	<exclude-pattern>*/tests/bootstrap.php</exclude-pattern>
 </ruleset>
