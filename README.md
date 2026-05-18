@@ -134,6 +134,7 @@ Run the local checks:
 ```bash
 composer lint
 composer analyze
+composer test
 ```
 
 Run the translation task locally only when you want to preview language file changes:
