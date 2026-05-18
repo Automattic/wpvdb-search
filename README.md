@@ -5,7 +5,7 @@
 [![PHP](https://img.shields.io/badge/PHP-8.3%2B-777bb4?logo=php&logoColor=white)](#requirements)
 [![License](https://img.shields.io/badge/License-GPLv2%2B-blue.svg)](LICENSE)
 
-Shared dense, sparse, and hybrid search primitives for content indexed by [`wpvdb`](https://github.com/rbcorrales/wpvdb).
+Shared dense, sparse, and hybrid search primitives for content indexed by [`wpvdb`](https://github.com/Automattic/wpvdb).
 
 This plugin is the canonical PHP search service used by [`wpvdb-smart-search`](https://github.com/rbcorrales/wpvdb-smart-search), [`wpvdb-blocks`](https://github.com/rbcorrales/wpvdb-blocks), WordPress Abilities, MCP clients, and WordPress query integrations.
 
@@ -15,7 +15,7 @@ This plugin is the canonical PHP search service used by [`wpvdb-smart-search`](h
 |---|---|
 | WordPress | 6.9 or newer |
 | PHP | 8.3 or newer |
-| [`wpvdb`](https://github.com/rbcorrales/wpvdb) | Installed and configured |
+| [`wpvdb`](https://github.com/Automattic/wpvdb) | Installed and configured |
 | MariaDB | Native `VECTOR` support for dense and hybrid search, plus `FULLTEXT` support for sparse and hybrid search |
 
 ## What this plugin owns
