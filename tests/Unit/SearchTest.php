@@ -41,6 +41,7 @@ final class SearchTest extends TestCase {
 	 *
 	 * @param string       $method Method name.
 	 * @param array<mixed> $args   Method args.
+	 * @return mixed
 	 */
 	private function invoke( string $method, array $args = [] ): mixed {
 		$reflection = new ReflectionMethod( Search::class, $method );
