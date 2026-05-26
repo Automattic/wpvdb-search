@@ -262,6 +262,44 @@ final class SearchTest extends TestCase {
 	}
 
 	/**
+	 * Test post ID search supports dense mode without enriching rows.
+	 *
+	 * @covers \WPVDB_Search\Search::post_ids
+	 */
+	public function test_post_ids_supports_dense_mode(): void {
+		$GLOBALS['wpvdb_search_test']['dense_rows'] = [
+			[
+				'id'            => 1,
+				'doc_id'        => 100,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Dense first',
+				'summary'       => '',
+				'distance'      => 0.05,
+			],
+			[
+				'id'            => 2,
+				'doc_id'        => 200,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Dense second',
+				'summary'       => '',
+				'distance'      => 0.08,
+			],
+		];
+
+		$post_ids = Search::post_ids(
+			[
+				'query'     => 'markets',
+				'mode'      => 'dense',
+				'model'     => 'demo-model',
+				'post_type' => [ 'post' ],
+			],
+			2
+		);
+
+		self::assertSame( [ 100, 200 ], $post_ids, 'Dense post ID search should return unique post IDs in dense rank order.' );
+	}
+
+	/**
 	 * Test post ID search supports hybrid mode without enriching rows.
 	 *
 	 * @covers \WPVDB_Search\Search::post_ids
