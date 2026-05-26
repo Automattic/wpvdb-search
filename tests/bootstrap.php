@@ -12,6 +12,10 @@ namespace {
 		'source_ids'     => [],
 		'source_rows'    => [],
 		'candidate_rows' => [],
+		'dense_rows'     => null,
+		'sparse_rows'    => null,
+		'has_fulltext'   => false,
+		'embedding'      => [ 1.0, 0.0 ],
 	];
 
 	if ( ! class_exists( 'WP_Error' ) ) {
@@ -115,6 +119,14 @@ namespace {
 		return trim( wp_strip_all_tags( (string) $value ) );
 	}
 
+	function esc_sql( mixed $value ): string {
+		return addslashes( (string) $value );
+	}
+
+	function wp_json_encode( mixed $value, int $flags = 0, int $depth = 512 ): string|false {
+		return json_encode( $value, $flags, $depth );
+	}
+
 	function wp_strip_all_tags( string $text ): string {
 		return strip_tags( $text );
 	}
@@ -149,6 +161,14 @@ namespace {
 			return $GLOBALS['wpvdb_search_test']['source_ids'];
 		}
 
+		public function get_var( string $query ): mixed {
+			$this->queries[] = $query;
+			if ( str_contains( $query, 'SHOW INDEX' ) ) {
+				return $GLOBALS['wpvdb_search_test']['has_fulltext'] ? 'wpvdb_ss_ft_chunk' : null;
+			}
+			return null;
+		}
+
 		/**
 		 * @return list<array<string, mixed>>
 		 */
@@ -162,6 +182,14 @@ namespace {
 
 			if ( ! str_contains( $query, "AND model = 'demo-model'" ) ) {
 				return [];
+			}
+
+			if ( str_contains( $query, 'VEC_DISTANCE_COSINE' ) && is_array( $GLOBALS['wpvdb_search_test']['dense_rows'] ) ) {
+				return $GLOBALS['wpvdb_search_test']['dense_rows'];
+			}
+
+			if ( str_contains( $query, 'MATCH(chunk_content)' ) && is_array( $GLOBALS['wpvdb_search_test']['sparse_rows'] ) ) {
+				return $GLOBALS['wpvdb_search_test']['sparse_rows'];
 			}
 
 			$last_id = 0;
@@ -186,11 +214,35 @@ namespace {
 }
 
 namespace WPVDB {
+	class Core {
+		/**
+		 * @return list<float>|\WP_Error
+		 */
+		public static function get_embedding( string $text, string $model, string $api_base, string $api_key ): array|\WP_Error {
+			unset( $text, $model, $api_base, $api_key );
+			return $GLOBALS['wpvdb_search_test']['embedding'];
+		}
+	}
+
 	class Settings {
 		public static string $default_model = 'default-model';
 
 		public static function get_default_model(): string {
 			return self::$default_model;
+		}
+
+		public static function get_active_provider(): string {
+			return 'openai';
+		}
+
+		public static function get_api_key_for_provider( string $provider ): string {
+			unset( $provider );
+			return 'test-key';
+		}
+
+		public static function get_api_base_for_provider( string $provider ): string {
+			unset( $provider );
+			return 'https://example.test';
 		}
 	}
 }

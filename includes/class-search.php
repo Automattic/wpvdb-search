@@ -18,6 +18,7 @@ class Search {
 	public const array MODES                 = [ 'hybrid', 'dense', 'sparse' ];
 	public const int RRF_K                   = 60;
 	public const int MAX_LIMIT               = 20;
+	public const int MAX_POOL                = 200;
 	public const int MAX_QUERY               = 500;
 	public const int RELATED_SOURCE_CHUNKS   = 3;
 	private const int RELATED_FALLBACK_BATCH = 500;
@@ -118,6 +119,57 @@ class Search {
 		}
 
 		return $response;
+	}
+
+	/**
+	 * Run a search and return unique ranked post IDs.
+	 *
+	 * Skips enrichment so callers can hydrate posts in their own WP_Query
+	 * context. Current-user visibility is intentionally not applied here; a
+	 * caller that caches this pool must run a readable-post pass before output.
+	 *
+	 * @param array<string, mixed> $args Search args.
+	 * @param int                  $pool Max post IDs to return.
+	 * @return list<int>|\WP_Error
+	 */
+	public static function post_ids( array $args, int $pool = 50 ): array|\WP_Error {
+		$args = self::normalize_args( $args );
+		if ( is_wp_error( $args ) ) {
+			return $args;
+		}
+
+		if ( ! class_exists( '\WPVDB\Core' ) || ! class_exists( '\WPVDB\Settings' ) ) {
+			return new \WP_Error( 'wpvdb_missing', __( 'wpvdb plugin classes not available.', 'wpvdb-search' ), [ 'status' => 500 ] );
+		}
+
+		$model = self::resolve_model( (string) $args['model'] );
+		if ( is_wp_error( $model ) ) {
+			return $model;
+		}
+		$args['model'] = $model;
+
+		// Always collapse chunk rows to posts, so use the same expanded pool as run() uses for post collapse.
+		$pool           = max( 1, min( self::MAX_POOL, $pool ) );
+		$candidate_pool = max( $pool * 6, 60 );
+		$mode           = (string) $args['mode'];
+		$query          = (string) $args['query'];
+		$dense_rows     = [];
+		$sparse_rows    = [];
+
+		if ( 'dense' === $mode || 'hybrid' === $mode ) {
+			$dense_rows = self::dense_query( $query, $candidate_pool, $args );
+			if ( is_wp_error( $dense_rows ) ) {
+				return $dense_rows;
+			}
+		}
+
+		if ( 'sparse' === $mode || 'hybrid' === $mode ) {
+			$sparse_rows = self::sparse_query( $query, $candidate_pool, $args );
+		}
+
+		$merged = self::merge( $dense_rows, $sparse_rows, $mode, $candidate_pool );
+
+		return self::collapse_raw_post_ids( $merged, $pool );
 	}
 
 	/**
@@ -904,6 +956,34 @@ class Search {
 				'rrf'          => null,
 			];
 		}
+		return $out;
+	}
+
+	/**
+	 * Keep the highest ranked raw chunk for each post and return post IDs.
+	 *
+	 * @param list<array<string, mixed>> $merged Merged rows from self::merge().
+	 * @param int                        $limit  Max post IDs to return.
+	 * @return list<int>
+	 */
+	private static function collapse_raw_post_ids( array $merged, int $limit ): array {
+		$out  = [];
+		$seen = [];
+
+		foreach ( $merged as $m ) {
+			$row     = isset( $m['row'] ) && is_array( $m['row'] ) ? $m['row'] : [];
+			$post_id = isset( $row['doc_id'] ) ? (int) $row['doc_id'] : 0;
+			if ( $post_id <= 0 || isset( $seen[ $post_id ] ) ) {
+				continue;
+			}
+
+			$seen[ $post_id ] = true;
+			$out[]            = $post_id;
+			if ( count( $out ) >= $limit ) {
+				break;
+			}
+		}
+
 		return $out;
 	}
 

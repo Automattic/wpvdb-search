@@ -32,6 +32,10 @@ final class SearchTest extends TestCase {
 		$GLOBALS['wpvdb_search_test']['source_ids']     = [];
 		$GLOBALS['wpvdb_search_test']['source_rows']    = [];
 		$GLOBALS['wpvdb_search_test']['candidate_rows'] = [];
+		$GLOBALS['wpvdb_search_test']['dense_rows']     = null;
+		$GLOBALS['wpvdb_search_test']['sparse_rows']    = null;
+		$GLOBALS['wpvdb_search_test']['has_fulltext']   = false;
+		$GLOBALS['wpvdb_search_test']['embedding']      = [ 1.0, 0.0 ];
 		$GLOBALS['wpdb']->queries                       = [];
 		$GLOBALS['wpdb']->last_error                    = '';
 	}
@@ -175,6 +179,214 @@ final class SearchTest extends TestCase {
 		self::assertSame( [ 'dense', 'sparse' ], $merged[0]['sources'], 'Merged rows should preserve both source labels.' );
 		self::assertSame( 2, $merged[0]['dense_rank'], 'Dense rank should be preserved.' );
 		self::assertSame( 1, $merged[0]['sparse_rank'], 'Sparse rank should be preserved.' );
+	}
+
+	/**
+	 * Test raw post ID collapse preserves rank order and removes duplicates.
+	 *
+	 * @covers \WPVDB_Search\Search::collapse_raw_post_ids
+	 */
+	public function test_collapse_raw_post_ids_keeps_first_ranked_chunk_per_post(): void {
+		$post_ids = $this->invoke(
+			'collapse_raw_post_ids',
+			[
+				[
+					[ 'row' => [ 'doc_id' => 200 ] ],
+					[ 'row' => [ 'doc_id' => 200 ] ],
+					[ 'row' => [ 'doc_id' => 300 ] ],
+					[ 'row' => [ 'doc_id' => 0 ] ],
+					[ 'row' => [ 'doc_id' => 400 ] ],
+				],
+				2,
+			]
+		);
+
+		self::assertSame( [ 200, 300 ], $post_ids, 'Raw collapse should keep unique post IDs in rank order up to the requested limit.' );
+	}
+
+	/**
+	 * Test post ID search returns ranked unique post IDs without enriching rows.
+	 *
+	 * @covers \WPVDB_Search\Search::post_ids
+	 */
+	public function test_post_ids_returns_ranked_unique_post_ids(): void {
+		$GLOBALS['wpvdb_search_test']['has_fulltext']   = true;
+		$GLOBALS['wpvdb_search_test']['candidate_rows'] = [
+			[
+				'id'            => 1,
+				'doc_id'        => 200,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Markets rally',
+				'summary'       => '',
+				'score'         => 8.0,
+			],
+			[
+				'id'            => 2,
+				'doc_id'        => 200,
+				'chunk_id'      => '1',
+				'chunk_content' => 'Markets rally again',
+				'summary'       => '',
+				'score'         => 7.5,
+			],
+			[
+				'id'            => 3,
+				'doc_id'        => 300,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Economic uncertainty',
+				'summary'       => '',
+				'score'         => 7.0,
+			],
+			[
+				'id'            => 4,
+				'doc_id'        => 400,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Another candidate',
+				'summary'       => '',
+				'score'         => 6.0,
+			],
+		];
+
+		$post_ids = Search::post_ids(
+			[
+				'query'     => 'markets',
+				'mode'      => 'sparse',
+				'model'     => 'demo-model',
+				'post_type' => [ 'post' ],
+			],
+			2
+		);
+
+		self::assertSame( [ 200, 300 ], $post_ids, 'Post ID search should return unique post IDs in rank order.' );
+		self::assertStringContainsString( "AND model = 'demo-model'", implode( "\n", $GLOBALS['wpdb']->queries ), 'Post ID search should stay scoped to the requested model.' );
+		self::assertStringContainsString( "AND doc_type IN ('post')", implode( "\n", $GLOBALS['wpdb']->queries ), 'Post ID search should keep post type filtering in the service query.' );
+	}
+
+	/**
+	 * Test post ID search supports dense mode without enriching rows.
+	 *
+	 * @covers \WPVDB_Search\Search::post_ids
+	 */
+	public function test_post_ids_supports_dense_mode(): void {
+		$GLOBALS['wpvdb_search_test']['dense_rows'] = [
+			[
+				'id'            => 1,
+				'doc_id'        => 100,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Dense first',
+				'summary'       => '',
+				'distance'      => 0.05,
+			],
+			[
+				'id'            => 2,
+				'doc_id'        => 200,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Dense second',
+				'summary'       => '',
+				'distance'      => 0.08,
+			],
+		];
+
+		$post_ids = Search::post_ids(
+			[
+				'query'     => 'markets',
+				'mode'      => 'dense',
+				'model'     => 'demo-model',
+				'post_type' => [ 'post' ],
+			],
+			2
+		);
+
+		self::assertSame( [ 100, 200 ], $post_ids, 'Dense post ID search should return unique post IDs in dense rank order.' );
+	}
+
+	/**
+	 * Test post ID search supports hybrid mode without enriching rows.
+	 *
+	 * @covers \WPVDB_Search\Search::post_ids
+	 */
+	public function test_post_ids_supports_hybrid_mode(): void {
+		$GLOBALS['wpvdb_search_test']['has_fulltext'] = true;
+		$GLOBALS['wpvdb_search_test']['dense_rows']   = [
+			[
+				'id'            => 1,
+				'doc_id'        => 100,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Dense only',
+				'summary'       => '',
+				'distance'      => 0.05,
+			],
+			[
+				'id'            => 2,
+				'doc_id'        => 200,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Overlap dense',
+				'summary'       => '',
+				'distance'      => 0.08,
+			],
+		];
+		$GLOBALS['wpvdb_search_test']['sparse_rows']  = [
+			[
+				'id'            => 2,
+				'doc_id'        => 200,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Overlap sparse',
+				'summary'       => '',
+				'score'         => 9.0,
+			],
+			[
+				'id'            => 3,
+				'doc_id'        => 300,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Sparse only',
+				'summary'       => '',
+				'score'         => 8.0,
+			],
+		];
+
+		$post_ids = Search::post_ids(
+			[
+				'query'     => 'markets',
+				'mode'      => 'hybrid',
+				'model'     => 'demo-model',
+				'post_type' => [ 'post' ],
+			],
+			3
+		);
+
+		self::assertSame( [ 200, 100, 300 ], $post_ids, 'Hybrid post ID search should reward overlap and return unique post IDs.' );
+	}
+
+	/**
+	 * Test post ID search clamps the requested pool.
+	 *
+	 * @covers \WPVDB_Search\Search::post_ids
+	 */
+	public function test_post_ids_clamps_pool_to_max_pool(): void {
+		$GLOBALS['wpvdb_search_test']['has_fulltext'] = true;
+		$rows = [];
+		for ( $i = 1; $i <= Search::MAX_POOL + 25; $i++ ) {
+			$rows[] = [
+				'id'            => $i,
+				'doc_id'        => 1000 + $i,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Candidate ' . $i,
+				'summary'       => '',
+				'score'         => 1000 - $i,
+			];
+		}
+		$GLOBALS['wpvdb_search_test']['candidate_rows'] = $rows;
+
+		$post_ids = Search::post_ids(
+			[
+				'query' => 'markets',
+				'mode'  => 'sparse',
+				'model' => 'demo-model',
+			],
+			Search::MAX_POOL + 99
+		);
+
+		self::assertCount( Search::MAX_POOL, $post_ids, 'Post ID search should clamp the pool to MAX_POOL.' );
+		self::assertSame( 1001, $post_ids[0], 'Clamped results should preserve rank order.' );
 	}
 
 	/**

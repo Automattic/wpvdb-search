@@ -9,6 +9,8 @@ Shared dense, sparse, and hybrid search primitives for content indexed by [`wpvd
 
 This plugin is the canonical PHP search service used by [`wpvdb-smart-search`](https://github.com/rbcorrales/wpvdb-smart-search), [`wpvdb-blocks`](https://github.com/rbcorrales/wpvdb-blocks), WordPress Abilities, MCP clients, and WordPress query integrations.
 
+For WordPress query integrations that need to hydrate results in their own `WP_Query` context, the service also exposes `Search::post_ids()`. It returns a ranked pool of unique post IDs while preserving the existing `Search::run()` response shape and the public 20 result cap.
+
 ## Requirements
 
 | Requirement | Version or notes |
@@ -21,6 +23,7 @@ This plugin is the canonical PHP search service used by [`wpvdb-smart-search`](h
 ## What this plugin owns
 
 - `WPVDB_Search\Search::run( array $args )`.
+- `WPVDB_Search\Search::post_ids( array $args, int $pool )`.
 - Dense vector search over `wpvdb` embeddings.
 - Sparse MariaDB `FULLTEXT` search over wpvdb chunks.
 - Hybrid reciprocal rank fusion over dense and sparse result sets.
@@ -57,6 +60,21 @@ Accepted parameters:
 | `collapse_by_post` | `bool` | `true`, `false` | `false` | Returns at most one result per post. |
 
 By default, `Search::run()` returns chunk level rows, allowing consumers to build precise context and debug ranking. Set `collapse_by_post` to `true` when a consumer needs at most one result per post.
+
+### Post ID pools
+
+```php
+$post_ids = \WPVDB_Search\Search::post_ids(
+	[
+		'query'     => 'markets reacting to economic uncertainty',
+		'mode'      => 'hybrid',
+		'post_type' => [ 'post', 'page' ],
+	],
+	50
+);
+```
+
+`Search::post_ids()` accepts retrieval arguments such as `query`, `mode`, `model`, and `post_type`. The second argument controls the maximum ranked pool size and is capped at 200. The method does not hydrate posts and does not apply post status or current user visibility, so callers must apply their own `post_status` and `perm => readable` pass before showing results.
 
 ### Related posts
 
