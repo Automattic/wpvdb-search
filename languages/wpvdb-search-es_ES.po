@@ -92,38 +92,39 @@ msgstr "Estados de publicación a buscar."
 msgid "Return at most one result per post."
 msgstr "Devuelve como máximo un resultado por entrada."
 
-#: includes/class-search.php:39 includes/class-search.php:268
+#: includes/class-search.php:40 includes/class-search.php:142
+#: includes/class-search.php:320
 msgid "wpvdb plugin classes not available."
 msgstr "Las clases del plugin wpvdb no están disponibles."
 
-#: includes/class-search.php:196
+#: includes/class-search.php:248
 msgid "Query text is required."
 msgstr "El texto de la consulta es obligatorio."
 
 #. translators: %d: maximum number of characters allowed in a query.
-#: includes/class-search.php:203
+#: includes/class-search.php:255
 #, php-format
 msgid "Query too long (max %d chars)."
 msgstr "Consulta demasiado larga (máximo %d caracteres)."
 
-#: includes/class-search.php:248
+#: includes/class-search.php:300
 msgid "Embedding model is not configured."
 msgstr "El modelo de embeddings no está configurado."
 
-#: includes/class-search.php:264
+#: includes/class-search.php:316
 msgid "Source post was not found."
 msgstr "No se encontró la entrada de origen."
 
-#: includes/class-search.php:471
+#: includes/class-search.php:523
 #, fuzzy
 msgid "Source post embeddings are not valid."
 msgstr "No se encontró la entrada de origen."
 
-#: includes/class-search.php:682
+#: includes/class-search.php:734
 msgid "Embedding provider is not configured."
 msgstr "El proveedor de embeddings no está configurado."
 
-#: includes/class-search.php:692 includes/class-search.php:699
+#: includes/class-search.php:744 includes/class-search.php:751
 msgid "Embedding provider returned an invalid vector."
 msgstr "El proveedor de embeddings devolvió un vector inválido."
 
