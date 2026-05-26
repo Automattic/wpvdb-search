@@ -32,6 +32,7 @@ final class SearchTest extends TestCase {
 		$GLOBALS['wpvdb_search_test']['source_ids']     = [];
 		$GLOBALS['wpvdb_search_test']['source_rows']    = [];
 		$GLOBALS['wpvdb_search_test']['candidate_rows'] = [];
+		$GLOBALS['wpvdb_search_test']['has_fulltext']   = false;
 		$GLOBALS['wpdb']->queries                       = [];
 		$GLOBALS['wpdb']->last_error                    = '';
 	}
@@ -175,6 +176,86 @@ final class SearchTest extends TestCase {
 		self::assertSame( [ 'dense', 'sparse' ], $merged[0]['sources'], 'Merged rows should preserve both source labels.' );
 		self::assertSame( 2, $merged[0]['dense_rank'], 'Dense rank should be preserved.' );
 		self::assertSame( 1, $merged[0]['sparse_rank'], 'Sparse rank should be preserved.' );
+	}
+
+	/**
+	 * Test raw post ID collapse preserves rank order and removes duplicates.
+	 *
+	 * @covers \WPVDB_Search\Search::collapse_raw_post_ids
+	 */
+	public function test_collapse_raw_post_ids_keeps_first_ranked_chunk_per_post(): void {
+		$post_ids = $this->invoke(
+			'collapse_raw_post_ids',
+			[
+				[
+					[ 'row' => [ 'doc_id' => 200 ] ],
+					[ 'row' => [ 'doc_id' => 200 ] ],
+					[ 'row' => [ 'doc_id' => 300 ] ],
+					[ 'row' => [ 'doc_id' => 0 ] ],
+					[ 'row' => [ 'doc_id' => 400 ] ],
+				],
+				2,
+			]
+		);
+
+		self::assertSame( [ 200, 300 ], $post_ids, 'Raw collapse should keep unique post IDs in rank order up to the requested limit.' );
+	}
+
+	/**
+	 * Test post ID search returns ranked unique post IDs without enriching rows.
+	 *
+	 * @covers \WPVDB_Search\Search::post_ids
+	 */
+	public function test_post_ids_returns_ranked_unique_post_ids(): void {
+		$GLOBALS['wpvdb_search_test']['has_fulltext']   = true;
+		$GLOBALS['wpvdb_search_test']['candidate_rows'] = [
+			[
+				'id'            => 1,
+				'doc_id'        => 200,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Markets rally',
+				'summary'       => '',
+				'score'         => 8.0,
+			],
+			[
+				'id'            => 2,
+				'doc_id'        => 200,
+				'chunk_id'      => '1',
+				'chunk_content' => 'Markets rally again',
+				'summary'       => '',
+				'score'         => 7.5,
+			],
+			[
+				'id'            => 3,
+				'doc_id'        => 300,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Economic uncertainty',
+				'summary'       => '',
+				'score'         => 7.0,
+			],
+			[
+				'id'            => 4,
+				'doc_id'        => 400,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Another candidate',
+				'summary'       => '',
+				'score'         => 6.0,
+			],
+		];
+
+		$post_ids = Search::post_ids(
+			[
+				'query'     => 'markets',
+				'mode'      => 'sparse',
+				'model'     => 'demo-model',
+				'post_type' => [ 'post' ],
+			],
+			2
+		);
+
+		self::assertSame( [ 200, 300 ], $post_ids, 'Post ID search should return unique post IDs in rank order.' );
+		self::assertStringContainsString( "AND model = 'demo-model'", implode( "\n", $GLOBALS['wpdb']->queries ), 'Post ID search should stay scoped to the requested model.' );
+		self::assertStringContainsString( "AND doc_type IN ('post')", implode( "\n", $GLOBALS['wpdb']->queries ), 'Post ID search should keep post type filtering in the service query.' );
 	}
 
 	/**

@@ -12,6 +12,7 @@ namespace {
 		'source_ids'     => [],
 		'source_rows'    => [],
 		'candidate_rows' => [],
+		'has_fulltext'   => false,
 	];
 
 	if ( ! class_exists( 'WP_Error' ) ) {
@@ -115,6 +116,10 @@ namespace {
 		return trim( wp_strip_all_tags( (string) $value ) );
 	}
 
+	function esc_sql( mixed $value ): string {
+		return addslashes( (string) $value );
+	}
+
 	function wp_strip_all_tags( string $text ): string {
 		return strip_tags( $text );
 	}
@@ -147,6 +152,14 @@ namespace {
 		public function get_col( string $query ): array {
 			$this->queries[] = $query;
 			return $GLOBALS['wpvdb_search_test']['source_ids'];
+		}
+
+		public function get_var( string $query ): mixed {
+			$this->queries[] = $query;
+			if ( str_contains( $query, 'SHOW INDEX' ) ) {
+				return $GLOBALS['wpvdb_search_test']['has_fulltext'] ? 'wpvdb_ss_ft_chunk' : null;
+			}
+			return null;
 		}
 
 		/**
@@ -186,6 +199,8 @@ namespace {
 }
 
 namespace WPVDB {
+	class Core {}
+
 	class Settings {
 		public static string $default_model = 'default-model';
 
