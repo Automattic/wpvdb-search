@@ -148,6 +148,7 @@ class Search {
 		}
 		$args['model'] = $model;
 
+		// Always collapse chunk rows to posts, so use the same expanded pool as run() uses for post collapse.
 		$pool           = max( 1, min( self::MAX_POOL, $pool ) );
 		$candidate_pool = max( $pool * 6, 60 );
 		$mode           = (string) $args['mode'];

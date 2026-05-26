@@ -23,6 +23,7 @@ For WordPress query integrations that need to hydrate results in their own `WP_Q
 ## What this plugin owns
 
 - `WPVDB_Search\Search::run( array $args )`.
+- `WPVDB_Search\Search::post_ids( array $args, int $pool )`.
 - Dense vector search over `wpvdb` embeddings.
 - Sparse MariaDB `FULLTEXT` search over wpvdb chunks.
 - Hybrid reciprocal rank fusion over dense and sparse result sets.
@@ -73,7 +74,7 @@ $post_ids = \WPVDB_Search\Search::post_ids(
 );
 ```
 
-`Search::post_ids()` accepts the same search arguments as `Search::run()`, except result projection and debug payloads do not apply. The second argument controls the maximum ranked pool size and is capped at 200. The method does not hydrate posts and does not apply current user visibility, so callers that cache the pool must run a `perm => readable` pass before showing results.
+`Search::post_ids()` accepts retrieval arguments such as `query`, `mode`, `model`, and `post_type`. The second argument controls the maximum ranked pool size and is capped at 200. The method does not hydrate posts and does not apply post status or current user visibility, so callers must apply their own `post_status` and `perm => readable` pass before showing results.
 
 ### Related posts
 
