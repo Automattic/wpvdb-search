@@ -107,7 +107,12 @@ Accepted arguments:
 
 ## Abilities API
 
-On WordPress 6.9 or newer, this plugin registers `wpvdb/semantic-search`. The ability is read-only, requires the current user to have `read` by default, and is marked `meta.mcp.public` so the MCP Adapter can discover it.
+On WordPress 6.9 or newer, this plugin registers two read-only abilities:
+
+- `wpvdb/semantic-search` searches the site corpus from a text query.
+- `wpvdb/find-related-posts` finds content related to a source post using stored vectors, without re-embedding the source post.
+
+Both abilities require the current user to have `read` by default and are marked `meta.mcp.public` so the MCP Adapter can discover them.
 
 ```php
 $ability = wp_get_ability( 'wpvdb/semantic-search' );
@@ -127,7 +132,23 @@ The Abilities REST route is:
 GET /wp-json/wp-abilities/v1/abilities/wpvdb%2Fsemantic-search/run?input[query]=markets&input[limit]=5&input[mode]=dense
 ```
 
-The slash in `wpvdb/semantic-search` is URL encoded as `%2F` in the REST path.
+Related lookup uses the same route shape:
+
+```php
+$ability = wp_get_ability( 'wpvdb/find-related-posts' );
+$result  = $ability->execute(
+	[
+		'post_id' => 123,
+		'limit'   => 5,
+	]
+);
+```
+
+```text
+GET /wp-json/wp-abilities/v1/abilities/wpvdb%2Ffind-related-posts/run?input[post_id]=123&input[limit]=5
+```
+
+The slash in ability names is URL encoded as `%2F` in the REST path.
 
 The Abilities REST controller reads execution parameters from the `input` query parameter for read-only abilities. `mode` accepts `dense`, `sparse`, or `hybrid`; the ability defaults to `dense` because hybrid runs both retrieval paths. `limit` is capped at 20. The default is one result per post; set `collapse_by_post` to `false` to return chunk-level rows. Results include post IDs, titles, canonical URLs, publication dates, bounded chunk excerpts, score metadata, matched chunk counts, and source modes.
 
@@ -135,9 +156,9 @@ Sites that need a stricter audience can filter `wpvdb_search_ability_capability`
 
 ## MCP Adapter
 
-When the WordPress MCP Adapter is installed and active, `wpvdb/semantic-search` is exposed through the adapter because the ability is registered with `meta.mcp.public`.
+When the WordPress MCP Adapter is installed and active, `wpvdb/semantic-search` and `wpvdb/find-related-posts` are exposed through the adapter because both abilities are registered with `meta.mcp.public`.
 
-MCP clients should discover available abilities, then execute `wpvdb/semantic-search` with the same input shape shown above.
+MCP clients should discover available abilities, then execute either wpvdb ability with the same input shapes shown above.
 
 ## Development
 

@@ -16,6 +16,12 @@ namespace {
 		'sparse_rows'    => null,
 		'has_fulltext'   => false,
 		'embedding'      => [ 1.0, 0.0 ],
+		'abilities'      => [],
+		'categories'     => [],
+		'caps'           => [ 'read' => true ],
+		'transients'     => [],
+		'user_id'        => 1,
+		'get_posts_args' => [],
 	];
 
 	if ( ! class_exists( 'WP_Error' ) ) {
@@ -63,6 +69,42 @@ namespace {
 		return $value;
 	}
 
+	function add_action( string $hook, callable $callback ): void {
+		unset( $hook, $callback );
+	}
+
+	function current_user_can( string $capability ): bool {
+		return (bool) ( $GLOBALS['wpvdb_search_test']['caps'][ $capability ] ?? false );
+	}
+
+	function get_current_user_id(): int {
+		return (int) $GLOBALS['wpvdb_search_test']['user_id'];
+	}
+
+	function get_transient( string $key ): mixed {
+		return $GLOBALS['wpvdb_search_test']['transients'][ $key ] ?? false;
+	}
+
+	function set_transient( string $key, mixed $value, int $expiration = 0 ): bool {
+		unset( $expiration );
+		$GLOBALS['wpvdb_search_test']['transients'][ $key ] = $value;
+		return true;
+	}
+
+	/**
+	 * @param array<string, mixed> $args Category args.
+	 */
+	function wp_register_ability_category( string $name, array $args ): void {
+		$GLOBALS['wpvdb_search_test']['categories'][ $name ] = $args;
+	}
+
+	/**
+	 * @param array<string, mixed> $args Ability args.
+	 */
+	function wp_register_ability( string $name, array $args ): void {
+		$GLOBALS['wpvdb_search_test']['abilities'][ $name ] = $args;
+	}
+
 	function absint( mixed $value ): int {
 		return max( 0, (int) $value );
 	}
@@ -77,11 +119,28 @@ namespace {
 		return $GLOBALS['wpvdb_search_test']['post_types'][ $post_id ] ?? false;
 	}
 
+	function get_post_type_object( string $post_type ): object|null {
+		$public_types = [ 'post', 'page', 'newsletter' ];
+		if ( ! in_array( $post_type, $public_types, true ) ) {
+			return null;
+		}
+
+		return (object) [
+			'public'              => true,
+			'exclude_from_search' => false,
+			'cap'                 => (object) [
+				'read_private_posts' => 'read_private_' . $post_type . 's',
+			],
+		];
+	}
+
 	/**
 	 * @param array<string, mixed> $args Query args.
 	 * @return list<object>
 	 */
 	function get_posts( array $args ): array {
+		$GLOBALS['wpvdb_search_test']['get_posts_args'][] = $args;
+
 		$include = isset( $args['include'] ) ? (array) $args['include'] : [];
 		$posts   = [];
 
@@ -250,4 +309,5 @@ namespace WPVDB {
 namespace {
 	require_once dirname( __DIR__ ) . '/includes/class-schema.php';
 	require_once dirname( __DIR__ ) . '/includes/class-search.php';
+	require_once dirname( __DIR__ ) . '/includes/class-abilities.php';
 }
