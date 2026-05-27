@@ -40,6 +40,7 @@ final class AbilitiesTest extends TestCase {
 		$GLOBALS['wpvdb_search_test']['caps']           = [ 'read' => true ];
 		$GLOBALS['wpvdb_search_test']['transients']     = [];
 		$GLOBALS['wpvdb_search_test']['user_id']        = 1;
+		$GLOBALS['wpvdb_search_test']['get_posts_args'] = [];
 		$GLOBALS['wpdb']->queries                       = [];
 		$GLOBALS['wpdb']->last_error                    = '';
 	}
@@ -133,6 +134,63 @@ final class AbilitiesTest extends TestCase {
 		self::assertSame( 'Close related chunk', $result['results'][0]['excerpt'], 'Related ability should expose bounded excerpts.' );
 		self::assertSame( 'cosine_similarity', $result['results'][0]['score_type'], 'Related ability should label related scores as dense similarity.' );
 		self::assertArrayNotHasKey( 'chunk_content', $result['results'][0], 'Related ability should not expose raw search rows.' );
+	}
+
+	/**
+	 * Test related ability clamps private status against requested post types.
+	 *
+	 * @covers \WPVDB_Search\Abilities::execute_find_related_posts
+	 */
+	public function test_execute_find_related_posts_clamps_private_status_by_post_type(): void {
+		Settings::$default_model                         = 'demo-model';
+		$GLOBALS['wpvdb_search_test']['is_sqlite']       = true;
+		$GLOBALS['wpvdb_search_test']['caps']            = [
+			'read'               => true,
+			'read_private_posts' => true,
+		];
+		$GLOBALS['wpvdb_search_test']['post_types'][100] = 'post';
+		$GLOBALS['wpvdb_search_test']['posts']           = [
+			100 => [
+				'title' => 'Source',
+				'link'  => 'https://example.test/source',
+				'date'  => '2026-05-17T00:00:00+00:00',
+			],
+			200 => [
+				'title' => 'Candidate',
+				'link'  => 'https://example.test/candidate',
+				'date'  => '2026-05-18T00:00:00+00:00',
+			],
+		];
+		$GLOBALS['wpvdb_search_test']['source_ids']      = [ 1 ];
+		$GLOBALS['wpvdb_search_test']['source_rows']     = [
+			[
+				'id'        => 1,
+				'embedding' => '[1,0]',
+			],
+		];
+		$GLOBALS['wpvdb_search_test']['candidate_rows']  = [
+			[
+				'id'            => 2,
+				'doc_id'        => 200,
+				'chunk_id'      => '0',
+				'chunk_content' => 'Candidate chunk',
+				'summary'       => '',
+				'embedding'     => '[0.95,0.05]',
+			],
+		];
+
+		Abilities::execute_find_related_posts(
+			[
+				'post_id'     => 100,
+				'post_type'   => [ 'page' ],
+				'post_status' => [ 'private' ],
+			]
+		);
+
+		$get_posts_args = end( $GLOBALS['wpvdb_search_test']['get_posts_args'] );
+		self::assertIsArray( $get_posts_args, 'Related lookup should hydrate through get_posts().' );
+		self::assertSame( [ 'page' ], $get_posts_args['post_type'], 'Related ability should preserve the requested post type.' );
+		self::assertSame( [ 'publish' ], $get_posts_args['post_status'], 'Private status should be rejected when the user cannot read private posts for the requested type.' );
 	}
 
 	/**

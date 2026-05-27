@@ -184,9 +184,10 @@ class Abilities {
 			return $rate_check;
 		}
 
-		$post_id = isset( $input['post_id'] ) ? absint( $input['post_id'] ) : 0;
-		$args    = [
-			'post_status'      => self::clamp_post_status( isset( $input['post_status'] ) ? $input['post_status'] : [ 'publish' ], [ 'any' ] ),
+		$post_id    = isset( $input['post_id'] ) ? absint( $input['post_id'] ) : 0;
+		$post_types = isset( $input['post_type'] ) ? self::clamp_post_types( $input['post_type'] ) : [ 'any' ];
+		$args       = [
+			'post_status'      => self::clamp_post_status( isset( $input['post_status'] ) ? $input['post_status'] : [ 'publish' ], $post_types ),
 			'collapse_by_post' => true,
 			'fields'           => [
 				'post_id',
@@ -203,7 +204,7 @@ class Abilities {
 		];
 
 		if ( isset( $input['post_type'] ) ) {
-			$args['post_type'] = self::clamp_post_types( $input['post_type'] );
+			$args['post_type'] = $post_types;
 		}
 
 		if ( isset( $input['source_chunks'] ) ) {

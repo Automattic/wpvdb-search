@@ -21,6 +21,7 @@ namespace {
 		'caps'           => [ 'read' => true ],
 		'transients'     => [],
 		'user_id'        => 1,
+		'get_posts_args' => [],
 	];
 
 	if ( ! class_exists( 'WP_Error' ) ) {
@@ -138,6 +139,8 @@ namespace {
 	 * @return list<object>
 	 */
 	function get_posts( array $args ): array {
+		$GLOBALS['wpvdb_search_test']['get_posts_args'][] = $args;
+
 		$include = isset( $args['include'] ) ? (array) $args['include'] : [];
 		$posts   = [];
 
