@@ -1,9 +1,9 @@
 {
-	"name": "rbcorrales/wpvdb-search",
+	"name": "automattic/wpvdb-search",
 	"description": "Shared dense, sparse, and hybrid search primitives for wpvdb.",
 	"type": "wordpress-plugin",
 	"license": "GPL-2.0-or-later",
-	"homepage": "https://github.com/rbcorrales/wpvdb-search",
+	"homepage": "https://github.com/Automattic/wpvdb-search",
 	"authors": [
 		{
 			"name": "Automattic",
@@ -51,8 +51,8 @@
 		}
 	},
 	"support": {
-		"issues": "https://github.com/rbcorrales/wpvdb-search/issues",
-		"source": "https://github.com/rbcorrales/wpvdb-search"
+		"issues": "https://github.com/Automattic/wpvdb-search/issues",
+		"source": "https://github.com/Automattic/wpvdb-search"
 	},
 	"config": {
 		"platform": {

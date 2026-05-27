@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   run:
-    uses: rbcorrales/wpvdb-scripts/.github/workflows/plugin-release.yml@main
+    uses: Automattic/wpvdb-scripts/.github/workflows/plugin-release.yml@main
     with:
       tag: ${{ github.event.inputs.tag || github.ref_name }}
       plugin-slug: wpvdb-search

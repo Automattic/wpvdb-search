@@ -22,8 +22,8 @@ msgstr "WPVDB Search"
 
 #. Plugin URI of the plugin
 #: wpvdb-search.php
-msgid "https://github.com/rbcorrales/wpvdb-search"
-msgstr "https://github.com/rbcorrales/wpvdb-search"
+msgid "https://github.com/Automattic/wpvdb-search"
+msgstr "https://github.com/Automattic/wpvdb-search"
 
 #. Description of the plugin
 #: wpvdb-search.php

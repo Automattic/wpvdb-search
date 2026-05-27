@@ -22,7 +22,7 @@ msgstr ""
 
 #. Plugin URI of the plugin
 #: wpvdb-search.php
-msgid "https://github.com/rbcorrales/wpvdb-search"
+msgid "https://github.com/Automattic/wpvdb-search"
 msgstr ""
 
 #. Description of the plugin

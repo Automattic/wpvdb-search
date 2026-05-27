@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   run:
-    uses: rbcorrales/wpvdb-scripts/.github/workflows/plugin-maintain-main.yml@main
+    uses: Automattic/wpvdb-scripts/.github/workflows/plugin-maintain-main.yml@main
     with:
       timeout-minutes: 15
       composer-install: false

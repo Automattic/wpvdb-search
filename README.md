@@ -1,13 +1,13 @@
 # WPVDB Search
 
-[![Checks](https://github.com/rbcorrales/wpvdb-search/actions/workflows/ci.yml/badge.svg)](https://github.com/rbcorrales/wpvdb-search/actions/workflows/ci.yml)
+[![Checks](https://github.com/Automattic/wpvdb-search/actions/workflows/ci.yml/badge.svg)](https://github.com/Automattic/wpvdb-search/actions/workflows/ci.yml)
 [![WordPress](https://img.shields.io/badge/WordPress-6.9%2B-3858e9?logo=wordpress&logoColor=white)](#requirements)
 [![PHP](https://img.shields.io/badge/PHP-8.3%2B-777bb4?logo=php&logoColor=white)](#requirements)
 [![License](https://img.shields.io/badge/License-GPLv2%2B-blue.svg)](LICENSE)
 
 Shared dense, sparse, and hybrid search primitives for content indexed by [`wpvdb`](https://github.com/Automattic/wpvdb).
 
-This plugin is the canonical PHP search service used by [`wpvdb-smart-search`](https://github.com/rbcorrales/wpvdb-smart-search), [`wpvdb-blocks`](https://github.com/rbcorrales/wpvdb-blocks), WordPress Abilities, MCP clients, and WordPress query integrations.
+This plugin is the canonical PHP search service used by [`wpvdb-smart-search`](https://github.com/Automattic/wpvdb-smart-search), [`wpvdb-blocks`](https://github.com/Automattic/wpvdb-blocks), WordPress Abilities, MCP clients, and WordPress query integrations.
 
 For WordPress query integrations that need to hydrate results in their own `WP_Query` context, the service also exposes `Search::post_ids()`. It returns a ranked pool of unique post IDs while preserving the existing `Search::run()` response shape and the public 20 result cap.
 
