@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   run:
-    uses: rbcorrales/wpvdb-scripts/.github/workflows/plugin-ci.yml@main
+    uses: Automattic/wpvdb-scripts/.github/workflows/plugin-ci.yml@main
     with:
       timeout-minutes: 10
       composer-install: true

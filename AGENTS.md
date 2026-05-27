@@ -5,8 +5,8 @@ Agent guidance for this repository. Keep this file focused on non-obvious constr
 ## Boundaries
 
 - Do not add credentials, tokens, application passwords, site-specific hostnames, or private deployment details.
-- Keep UI, demo page rendering, public Smart Search REST routing, example prompts, and browser assets in `https://github.com/rbcorrales/wpvdb-smart-search`.
-- Do not add ingestion, queueing, provider settings, or embedding storage ownership here. Those belong in `https://github.com/rbcorrales/wpvdb`.
+- Keep UI, demo page rendering, public Smart Search REST routing, example prompts, and browser assets in `https://github.com/Automattic/wpvdb-smart-search`.
+- Do not add ingestion, queueing, provider settings, or embedding storage ownership here. Those belong in `https://github.com/Automattic/wpvdb`.
 - Keep Playground fixture behavior in `https://github.com/rbcorrales/wpvdb-playground-demo`. This repo can expose hooks and fallbacks, but it should not hardcode demo models or sample data.
 
 ## Search correctness
