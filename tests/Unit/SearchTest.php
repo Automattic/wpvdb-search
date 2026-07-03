@@ -29,6 +29,7 @@ final class SearchTest extends TestCase {
 		$GLOBALS['wpvdb_search_test']['is_sqlite']      = false;
 		$GLOBALS['wpvdb_search_test']['post_types']     = [];
 		$GLOBALS['wpvdb_search_test']['posts']          = [];
+		$GLOBALS['wpvdb_search_test']['get_posts_args'] = [];
 		$GLOBALS['wpvdb_search_test']['source_ids']     = [];
 		$GLOBALS['wpvdb_search_test']['source_rows']    = [];
 		$GLOBALS['wpvdb_search_test']['candidate_rows'] = [];
@@ -390,6 +391,40 @@ final class SearchTest extends TestCase {
 	}
 
 	/**
+	 * A non-public / password-protected source post must not drive a related lookup.
+	 */
+	public function test_related_to_post_rejects_non_public_source(): void {
+		$GLOBALS['wpvdb_search_test']['post_types'][100] = 'post';
+		// Source privatized out-of-band, leaving stale embeddings: it must not
+		// drive a related lookup. Flag lives on the per-post fixture.
+		$GLOBALS['wpvdb_search_test']['posts'][100] = [
+			'title'      => 'Private source',
+			'non_public' => true,
+		];
+
+		$result = Search::related_to_post( 100, 2, [ 'model' => 'demo-model' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result, 'A non-public source must be rejected.' );
+		self::assertSame( 'invalid_post', $result->get_error_code() );
+	}
+
+	/**
+	 * A publicly-viewable but password-protected source must also be rejected.
+	 */
+	public function test_related_to_post_rejects_password_protected_source(): void {
+		$GLOBALS['wpvdb_search_test']['post_types'][100] = 'post';
+		$GLOBALS['wpvdb_search_test']['posts'][100]      = [
+			'title'         => 'Protected source',
+			'post_password' => 'secret',
+		];
+
+		$result = Search::related_to_post( 100, 2, [ 'model' => 'demo-model' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result, 'A password-protected source must be rejected.' );
+		self::assertSame( 'invalid_post', $result->get_error_code() );
+	}
+
+	/**
 	 * Test related lookup uses the SQLite PHP fallback.
 	 *
 	 * @covers \WPVDB_Search\Search::related_to_post
@@ -466,5 +501,8 @@ final class SearchTest extends TestCase {
 		self::assertSame( 1, $result['debug']['source_chunks'], 'Debug data should report one source chunk.' );
 		self::assertSame( 2, $result['debug']['candidate_count'], 'Debug data should exclude invalid candidates.' );
 		self::assertStringContainsString( "AND model = 'demo-model'", implode( "\n", $GLOBALS['wpdb']->queries ), 'Candidate SQL should be scoped to the requested model.' );
+
+		$hydration = end( $GLOBALS['wpvdb_search_test']['get_posts_args'] );
+		self::assertFalse( $hydration['has_password'], 'Hydration should exclude password-protected posts via has_password => false.' );
 	}
 }

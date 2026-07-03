@@ -312,8 +312,15 @@ class Search {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	private static function normalize_related_args( int $post_id, int $limit, array $args ): array|\WP_Error {
-		if ( $post_id <= 0 || ! get_post( $post_id ) ) {
+		$source = $post_id > 0 ? get_post( $post_id ) : null;
+		if ( ! $source ) {
 			return new \WP_Error( 'invalid_post', __( 'Source post was not found.', 'wpvdb-search' ), [ 'status' => 404 ] );
+		}
+
+		// The source must be publicly viewable and unprotected, so a non-public
+		// source's (stale) vectors can't drive related lookups.
+		if ( ! is_post_publicly_viewable( $source ) || ! empty( $source->post_password ) ) {
+			return new \WP_Error( 'invalid_post', __( 'Source post is not available for related lookup.', 'wpvdb-search' ), [ 'status' => 404 ] );
 		}
 
 		if ( ! class_exists( '\WPVDB\Settings' ) ) {
@@ -1012,6 +1019,8 @@ class Search {
 					'include'                => $doc_ids,
 					'post_type'              => in_array( 'any', $args['post_type'], true ) ? 'any' : $args['post_type'],
 					'post_status'            => empty( $args['post_status'] ) ? [ 'publish' ] : $args['post_status'],
+					// Drop password-protected posts (they stay post_status=publish).
+					'has_password'           => false,
 					'numberposts'            => count( $doc_ids ),
 					'perm'                   => 'readable',
 					'no_found_rows'          => true,
