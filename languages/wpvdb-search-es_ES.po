@@ -137,7 +137,7 @@ msgid "Number of source chunks used for comparison."
 msgstr ""
 
 #: includes/class-search.php:40 includes/class-search.php:142
-#: includes/class-search.php:320
+#: includes/class-search.php:327
 msgid "wpvdb plugin classes not available."
 msgstr "Las clases del plugin wpvdb no están disponibles."
 
@@ -155,20 +155,24 @@ msgstr "Consulta demasiado larga (máximo %d caracteres)."
 msgid "Embedding model is not configured."
 msgstr "El modelo de embeddings no está configurado."
 
-#: includes/class-search.php:316
+#: includes/class-search.php:317
 msgid "Source post was not found."
 msgstr "No se encontró la entrada de origen."
 
-#: includes/class-search.php:523
+#: includes/class-search.php:323
+msgid "Source post is not available for related lookup."
+msgstr ""
+
+#: includes/class-search.php:530
 #, fuzzy
 msgid "Source post embeddings are not valid."
 msgstr "No se encontró la entrada de origen."
 
-#: includes/class-search.php:734
+#: includes/class-search.php:741
 msgid "Embedding provider is not configured."
 msgstr "El proveedor de embeddings no está configurado."
 
-#: includes/class-search.php:744 includes/class-search.php:751
+#: includes/class-search.php:751 includes/class-search.php:758
 msgid "Embedding provider returned an invalid vector."
 msgstr "El proveedor de embeddings devolvió un vector inválido."
 

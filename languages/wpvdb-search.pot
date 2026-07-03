@@ -2,7 +2,7 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPVDB Search 0.8.0\n"
+"Project-Id-Version: WPVDB Search 0.9.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpvdb-search\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -110,7 +110,7 @@ msgstr ""
 
 #: includes/class-search.php:40
 #: includes/class-search.php:142
-#: includes/class-search.php:320
+#: includes/class-search.php:327
 msgid "wpvdb plugin classes not available."
 msgstr ""
 
@@ -128,20 +128,24 @@ msgstr ""
 msgid "Embedding model is not configured."
 msgstr ""
 
-#: includes/class-search.php:316
+#: includes/class-search.php:317
 msgid "Source post was not found."
 msgstr ""
 
-#: includes/class-search.php:523
+#: includes/class-search.php:323
+msgid "Source post is not available for related lookup."
+msgstr ""
+
+#: includes/class-search.php:530
 msgid "Source post embeddings are not valid."
 msgstr ""
 
-#: includes/class-search.php:734
+#: includes/class-search.php:741
 msgid "Embedding provider is not configured."
 msgstr ""
 
-#: includes/class-search.php:744
 #: includes/class-search.php:751
+#: includes/class-search.php:758
 msgid "Embedding provider returned an invalid vector."
 msgstr ""
 
