@@ -110,9 +110,22 @@ namespace {
 	}
 
 	function get_post( int $post_id ): object|null {
-		return isset( $GLOBALS['wpvdb_search_test']['posts'][ $post_id ] )
-			? (object) [ 'ID' => $post_id ]
-			: null;
+		if ( ! isset( $GLOBALS['wpvdb_search_test']['posts'][ $post_id ] ) ) {
+			return null;
+		}
+		return (object) [
+			'ID'            => $post_id,
+			'post_password' => $GLOBALS['wpvdb_search_test']['post_passwords'][ $post_id ] ?? '',
+		];
+	}
+
+	function is_post_publicly_viewable( object|int|null $post = null ): bool {
+		$id = is_object( $post ) ? (int) ( $post->ID ?? 0 ) : (int) $post;
+		// Fixture posts are publicly viewable unless flagged otherwise.
+		if ( ! isset( $GLOBALS['wpvdb_search_test']['posts'][ $id ] ) ) {
+			return false;
+		}
+		return empty( $GLOBALS['wpvdb_search_test']['non_public'][ $id ] );
 	}
 
 	function get_post_type( int $post_id ): string|false {

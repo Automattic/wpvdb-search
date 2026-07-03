@@ -29,6 +29,8 @@ final class SearchTest extends TestCase {
 		$GLOBALS['wpvdb_search_test']['is_sqlite']      = false;
 		$GLOBALS['wpvdb_search_test']['post_types']     = [];
 		$GLOBALS['wpvdb_search_test']['posts']          = [];
+		$GLOBALS['wpvdb_search_test']['non_public']     = [];
+		$GLOBALS['wpvdb_search_test']['post_passwords'] = [];
 		$GLOBALS['wpvdb_search_test']['source_ids']     = [];
 		$GLOBALS['wpvdb_search_test']['source_rows']    = [];
 		$GLOBALS['wpvdb_search_test']['candidate_rows'] = [];
@@ -387,6 +389,36 @@ final class SearchTest extends TestCase {
 
 		self::assertCount( Search::MAX_POOL, $post_ids, 'Post ID search should clamp the pool to MAX_POOL.' );
 		self::assertSame( 1001, $post_ids[0], 'Clamped results should preserve rank order.' );
+	}
+
+	/**
+	 * A non-public / password-protected source post must not drive a related lookup.
+	 */
+	public function test_related_to_post_rejects_non_public_source(): void {
+		$GLOBALS['wpvdb_search_test']['post_types'][100] = 'post';
+		$GLOBALS['wpvdb_search_test']['posts'][100]      = [ 'title' => 'Private source' ];
+		// Source privatized/protected out-of-band, leaving stale embeddings: it
+		// must not drive a related lookup.
+		$GLOBALS['wpvdb_search_test']['non_public'][100] = true;
+
+		$result = Search::related_to_post( 100, 2, [ 'model' => 'demo-model' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result, 'A non-public source must be rejected.' );
+		self::assertSame( 'invalid_post', $result->get_error_code() );
+	}
+
+	/**
+	 * A publicly-viewable but password-protected source must also be rejected.
+	 */
+	public function test_related_to_post_rejects_password_protected_source(): void {
+		$GLOBALS['wpvdb_search_test']['post_types'][100]     = 'post';
+		$GLOBALS['wpvdb_search_test']['posts'][100]          = [ 'title' => 'Protected source' ];
+		$GLOBALS['wpvdb_search_test']['post_passwords'][100] = 'secret';
+
+		$result = Search::related_to_post( 100, 2, [ 'model' => 'demo-model' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result, 'A password-protected source must be rejected.' );
+		self::assertSame( 'invalid_post', $result->get_error_code() );
 	}
 
 	/**
