@@ -71,7 +71,7 @@ class Schema {
 
 		$index = self::INDEX_NAME;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table and index names are trusted internal values.
-		$wpdb->query( "ALTER TABLE {$table} ADD FULLTEXT INDEX {$index} (chunk_content), ALGORITHM=INPLACE, LOCK=NONE" );
+		$wpdb->query( "ALTER TABLE {$table} ADD FULLTEXT INDEX {$index} (chunk_content)" );
 
 		if ( empty( $wpdb->last_error ) ) {
 			update_option( self::OPTION_INSTALLED, '1', false );
